@@ -73,8 +73,7 @@ let intvl = new Interval(ib.reqCompletedOrders, 5000);
 
 app.get("/", async function (req, res) {
   let password = Buffer.from(req.query.password || "");
-  console.log(password);
-  console.log(posterPassword);
+
   if (!timingSafeEqual(password, posterPassword)) {
     return res.sendStatus(404);
   }
