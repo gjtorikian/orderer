@@ -28,7 +28,7 @@ exchangeOverrides = {
 
 const ib = new IBApi({
   host: "127.0.0.1",
-  port: 4001, //4003,
+  port: 4003,
 });
 
 const states = {
