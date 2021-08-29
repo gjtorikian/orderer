@@ -78,10 +78,7 @@ app.get("/", async function (req, res) {
     return res.sendStatus(404);
   }
 
-  ib.once(EventName.currentTime, (time) => {
-    return res.send(`API time is: ${time}`);
-  });
-  ib.reqCurrentTime();
+  return res.status(200).send("Ok.");
 });
 
 app.post("/place", function (req, res) {
