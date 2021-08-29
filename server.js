@@ -1,5 +1,7 @@
 const path = require("path");
-const posterPassword = Buffer.from(process.env.POSTER_PASSWORD || "");
+const posterPassword = Buffer.from(
+  process.env.POSTER_PASSWORD || "3a6648d49f9500c005e4242cbcec57a3"
+);
 
 const express = require("express");
 const cors = require("cors");
@@ -28,7 +30,7 @@ exchangeOverrides = {
 
 const ib = new IBApi({
   host: "127.0.0.1",
-  port: 4003,
+  port: 4001,
 });
 
 const states = {
@@ -82,7 +84,6 @@ app.get("/", async function (req, res) {
 });
 
 app.post("/place", function (req, res) {
-  return res.sendStatus(404);
   let body = req.body;
   let message = body.message;
   let password = Buffer.from(req.headers.authorization || "");
@@ -91,24 +92,25 @@ app.post("/place", function (req, res) {
     return res.sendStatus(404);
   }
 
-  ib.reqPositions();
-
   ib.once(
     EventName.completedOrdersEnd,
     (account, order, contract, orderState) => {
       if (!lastOrderCompleted) {
+        console.log("Previous buy hasn't finished yet");
         return res.status(204).send("Previous buy hasn't finished yet");
       }
 
       intvl.stop();
 
       if (state == states.BUYING) {
+        console.log("Entering SELLING phase");
         sequence = ["s", contract.stock, order.price, order.totalQuantity];
         state = states.SELLING;
         lastOrderId = 0;
         lastOrderCompleted = false;
         ib.reqIds(1);
       } else if (state == states.SELLING) {
+        console.log("Entering READY_TO_BUY phase");
         state = states.READY_TO_BUY;
         positionsCount = 0;
         lastOrderId = 0;
@@ -118,21 +120,29 @@ app.post("/place", function (req, res) {
   );
 
   ib.once(EventName.positionEnd, (positions) => {
+    ib.cancelPositions();
+    console.log(`${positionsCount} positions`);
     if (positionsCount > 0) {
       positionsCount = 0;
+      console.log("Positions already exist");
       return res.send("Positions already exist");
     }
 
     sequence = ["b"].concat(message.split(" "));
 
     if (state == states.READY_TO_BUY) {
+      console.log("Entering BUYING phase");
       state = states.BUYING;
       ib.reqIds();
       return res.sendStatus(200);
     } else {
+      console.log("State is not ready to buy");
       return res.status(204).send("State is not ready to buy");
     }
   });
+
+  console.log("Requesting positions");
+  ib.reqPositions();
 });
 
 ib.connect();
@@ -165,7 +175,6 @@ function performBuy(orderId) {
   let quantity = parseInt(sequence[2]);
   let price = parseFloat(sequence[3]);
 
-  console.log(ib);
   let contract = ib.contract(stock);
 
   contract.exchange = exchangeOverrides[stock] || contract.exchange;
@@ -181,6 +190,7 @@ function performBuy(orderId) {
 
   lastOrderId = orderId;
 
+  console.log("Placing buy");
   ib.placeOrder(orderId, contract, order);
   intvl.run();
 }
@@ -204,6 +214,7 @@ function performSell(orderId) {
 
   lastOrderId = orderId;
 
+  console.log("Placing sell");
   ib.placeOrder(orderId, contract, order);
   intvl.run();
 }
