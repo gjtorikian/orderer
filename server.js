@@ -46,7 +46,7 @@ class Interval {
 
 const ib = new (require("ib"))({
   host: "127.0.0.1",
-  port: 4001,
+  port: 4003,
 });
 
 const WinPercentage = 1 + 0.16 / 100; // .16% * 500k = 20 * 8,000
