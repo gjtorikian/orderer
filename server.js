@@ -99,11 +99,11 @@ app.post("/place", function (req, res) {
     } else if (state === states.READY_TO_BUY) {
       ib.once("positionEnd", (positions) => {
         console.log(`${positionsCount} positions`);
-        // if (positionsCount > 0) {
-        //   positionsCount = 0;
-        //   console.log(`${positionsCount} positions already exist`);
-        //   return res.send(`${positionsCount} positions already exist`);
-        // }
+        if (positionsCount > 0) {
+          positionsCount = 0;
+          console.log(`${positionsCount} positions already exist`);
+          return res.send(`${positionsCount} positions already exist`);
+        }
 
         console.log("Entering BUYING state");
         state = states.BUYING;
