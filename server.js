@@ -181,7 +181,6 @@ function performBuy(orderId) {
   order = ib.order.limit("BUY", quantity, price);
   lastOrderId = orderId;
 
-  console.log(price);
   console.log(`Placing buy #${lastOrderId} of ${stock} @ ${price}`);
   ib.placeOrder(orderId, contract, order);
 }
