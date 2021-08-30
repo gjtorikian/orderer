@@ -17,33 +17,6 @@ app.use(bodyParser.json());
 
 app.use(cors());
 
-const iblib = require("@stoqey/ib");
-const IBApi = iblib.IBApi;
-const EventName = iblib.EventName;
-
-const WinPercentage = 1 + 0.16 / 100; // .16% * 500k = 20 * 8,000
-
-exchangeOverrides = {
-  SPCE: "NYSE",
-  MSFT: "NYSE",
-};
-
-const ib = new IBApi({
-  host: "127.0.0.1",
-  port: 4001,
-});
-
-const states = {
-  READY_TO_BUY: "READY_TO_BUY",
-  BUYING: "BUYING",
-  // BOUGHT: "BOUGHT",
-  // READY_TO_SELL: "READY_TO_SELL",
-  SELLING: "SELLING",
-  // SOLD: "SOLD",
-};
-let state = states.READY_TO_BUY;
-let sequence = [];
-
 class Interval {
   constructor(f, n) {
     this.fn = f;
@@ -71,7 +44,28 @@ class Interval {
   }
 }
 
-let intvl = new Interval(ib.reqCompletedOrders, 5000);
+const ib = new (require("ib"))({
+  host: "127.0.0.1",
+  port: 4001,
+});
+
+const WinPercentage = 1 + 0.16 / 100; // .16% * 500k = 20 * 8,000
+
+exchangeOverrides = {
+  SPCE: "NYSE",
+  MSFT: "NYSE",
+};
+
+const states = {
+  READY_TO_BUY: "READY_TO_BUY",
+  BUYING: "BUYING",
+  // BOUGHT: "BOUGHT",
+  // READY_TO_SELL: "READY_TO_SELL",
+  SELLING: "SELLING",
+  // SOLD: "SOLD",
+};
+let state = states.READY_TO_BUY;
+let sequence = [];
 
 app.get("/", async function (req, res) {
   let password = Buffer.from(req.query.password || "");
@@ -80,7 +74,10 @@ app.get("/", async function (req, res) {
     return res.sendStatus(404);
   }
 
-  return res.status(200).send("Ok.");
+  ib.once("currentTime", (time) => {
+    return res.send(`API time is: ${time}`);
+  });
+  ib.reqCurrentTime();
 });
 
 app.post("/place", function (req, res) {
@@ -92,57 +89,34 @@ app.post("/place", function (req, res) {
     return res.sendStatus(404);
   }
 
-  ib.once(
-    EventName.completedOrdersEnd,
-    (account, order, contract, orderState) => {
-      if (!lastOrderCompleted) {
-        console.log("Previous buy hasn't finished yet");
-        return res.status(204).send("Previous buy hasn't finished yet");
-      }
+  let openOrders = 0;
+  // Check open orders
+  ib.once("openOrder", function (orderId, contract, order, orderState) {
+    openOrders++;
+  }).once("openOrderEnd", function () {
+    if (openOrders > 0) {
+      return res.status(202).send("Previous order hasn't finished yet");
+    } else if (state === states.READY_TO_BUY) {
+      ib.once("positionEnd", (positions) => {
+        console.log(`${positionsCount} positions`);
+        // if (positionsCount > 0) {
+        //   positionsCount = 0;
+        //   console.log(`${positionsCount} positions already exist`);
+        //   return res.send(`${positionsCount} positions already exist`);
+        // }
 
-      intvl.stop();
-
-      if (state == states.BUYING) {
-        console.log("Entering SELLING phase");
-        sequence = ["s", contract.stock, order.price, order.totalQuantity];
-        state = states.SELLING;
-        lastOrderId = 0;
-        lastOrderCompleted = false;
+        console.log("Entering BUYING state");
+        state = states.BUYING;
+        sequence = message.split(" ");
         ib.reqIds(1);
-      } else if (state == states.SELLING) {
-        console.log("Entering READY_TO_BUY phase");
-        state = states.READY_TO_BUY;
-        positionsCount = 0;
-        lastOrderId = 0;
-        lastOrderCompleted = false;
-      }
-    }
-  );
+        return res.sendStatus(200);
+      });
 
-  ib.once(EventName.positionEnd, (positions) => {
-    ib.cancelPositions();
-    console.log(`${positionsCount} positions`);
-    if (positionsCount > 0) {
-      positionsCount = 0;
-      console.log("Positions already exist");
-      return res.send("Positions already exist");
-    }
-
-    sequence = ["b"].concat(message.split(" "));
-
-    if (state == states.READY_TO_BUY) {
-      console.log("Entering BUYING phase");
-      state = states.BUYING;
-      ib.reqIds();
-      return res.sendStatus(200);
-    } else {
-      console.log("State is not ready to buy");
-      return res.status(204).send("State is not ready to buy");
+      console.log("Requesting positions");
+      ib.reqPositions();
     }
   });
-
-  console.log("Requesting positions");
-  ib.reqPositions();
+  ib.reqOpenOrders();
 });
 
 ib.connect();
@@ -151,72 +125,79 @@ let positionsCount = 0;
 let lastOrderId = 0;
 let lastOrderCompleted = false;
 
-ib.on(EventName.error, (err, code, reqId) => {
+ib.on("error", (err, code, reqId) => {
   console.error(`${err.message} - code: ${code} - reqId: ${reqId}`);
 })
-  .on(EventName.position, (account, contract, pos, avgCost) => {
+  .on("position", (account, contract, pos, avgCost) => {
     positionsCount++;
   })
-  .on(EventName.nextValidId, (orderId) => {
+  .on("nextValidId", (orderId) => {
     if (state == states.BUYING) {
       performBuy(orderId);
     } else if (state == states.SELLING) {
+      console.log("Entering SELLING state");
+      lastOrderId = 0;
+      lastOrderCompleted = false;
       performSell(orderId);
+    } else {
+      console.log(`State is ${state}`);
     }
   })
-  .on(EventName.completedOrder, (account, order, contract, orderState) => {
-    if (lastOrderId == order.orderId) {
-      lastOrderCompleted = true;
+  .on(
+    "orderStatus",
+    (orderId, status, filled, remaining, avgFillPrice, ...args) => {
+      if (filled == 1 && lastOrderId == orderId) {
+        console.log(
+          `Order #${orderId} filled in state ${state} (lastOrderCompleted = ${lastOrderCompleted})`
+        );
+        if (state == states.BUYING) {
+          if (lastOrderCompleted) {
+            lastOrderCompleted = false;
+            state = states.SELLING;
+            ib.reqIds(1);
+          } else {
+            // for some reason orderStatus is called twice for the same order
+            lastOrderCompleted = true;
+          }
+        } else if (state == states.SELLING) {
+          state = states.READY_TO_BUY;
+        }
+      }
     }
-  });
+  );
+
+function round(value, decimals) {
+  return Number(Math.round(value + "e" + decimals) + "e-" + decimals);
+}
 
 function performBuy(orderId) {
   let stock = sequence[1];
   let quantity = parseInt(sequence[2]);
   let price = parseFloat(sequence[3]);
 
-  let contract = ib.contract(stock);
-
+  contract = ib.contract.stock(stock);
   contract.exchange = exchangeOverrides[stock] || contract.exchange;
 
-  const order = {
-    orderType: OrderType.LMT,
-    action: OrderAction.BUY,
-    lmtPrice: price,
-    orderId,
-    totalQuantity: quantity,
-    account: process.env.ACCOUNT_ID,
-  };
-
+  order = ib.order.limit("BUY", quantity, price);
   lastOrderId = orderId;
 
-  console.log("Placing buy");
+  console.log(price);
+  console.log(`Placing buy #${lastOrderId} of ${stock} @ ${price}`);
   ib.placeOrder(orderId, contract, order);
-  intvl.run();
 }
 
 function performSell(orderId) {
-  let stock = sequence[1].stock;
+  let stock = sequence[1];
   let quantity = parseInt(sequence[2]);
-  let price = parseFloat(sequence[3]);
+  let price = round(WinPercentage * parseFloat(sequence[3]), 2);
 
-  let contract = ib.contract.stock(stock);
-  contract.exchange = exchangeOverrides[stock] || contract.exchange;
+  contract = ib.contract.stock(stock);
 
-  const order = {
-    orderType: OrderType.LMT,
-    action: OrderAction.SELL,
-    lmtPrice: Math.round(price * WinPercentage) / 100,
-    orderId,
-    totalQuantity: quantity,
-    account: process.env.ACCOUNT_ID,
-  };
-
+  order = ib.order.limit("SELL", quantity, price);
   lastOrderId = orderId;
 
-  console.log("Placing sell");
+  console.log(`Placing sell #${lastOrderId} of ${stock} @ ${price}`);
   ib.placeOrder(orderId, contract, order);
-  intvl.run();
 }
 
 server.listen(port, function () {
