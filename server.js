@@ -1,6 +1,6 @@
 const path = require("path");
 const posterPassword = Buffer.from(
-  process.env.POSTER_PASSWORD || "3a6648d49f9500c005e4242cbcec57a3"
+  process.env.POSTER_PASSWORD
 );
 
 const express = require("express");
