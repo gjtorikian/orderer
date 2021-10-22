@@ -147,7 +147,7 @@ ib.on("error", (err, code, reqId) => {
   .on(
     "orderStatus",
     (orderId, status, filled, remaining, avgFillPrice, ...args) => {
-      if (filled == 1 && lastOrderId == orderId) {
+      if (lastOrderId == orderId) {
         console.log(
           `Order #${orderId} filled in state ${state} (lastOrderCompleted = ${lastOrderCompleted})`
         );
@@ -163,10 +163,6 @@ ib.on("error", (err, code, reqId) => {
         } else if (state == states.SELLING) {
           state = states.READY_TO_BUY;
         }
-      } else {
-        console.log(
-          `filled: ${filled} lastOrderId: ${lastOrderId} orderId: ${orderId}`
-        );
       }
     }
   );
