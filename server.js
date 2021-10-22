@@ -156,6 +156,8 @@ ib.on("error", (err, code, reqId) => {
           if (lastOrderCompleted) {
             lastOrderCompleted = false;
             state = states.SELLING;
+            // set price to sell off of avgFillPrice, not original order submitted price
+            sequence[3] = avgFillPrice;
             console.log("Preparing to sell");
             ib.reqIds(1);
           } else {
