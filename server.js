@@ -147,6 +147,7 @@ ib.on("error", (err, code, reqId) => {
   .on(
     "orderStatus",
     (orderId, status, filled, remaining, avgFillPrice, ...args) => {
+      console.log(status);
       if (lastOrderId == orderId) {
         console.log(
           `Order #${orderId} filled in state ${state} (lastOrderCompleted = ${lastOrderCompleted})`
@@ -155,6 +156,7 @@ ib.on("error", (err, code, reqId) => {
           if (lastOrderCompleted) {
             lastOrderCompleted = false;
             state = states.SELLING;
+            console.log("Preparing to sell");
             ib.reqIds(1);
           } else {
             // for some reason orderStatus is called twice for the same order
