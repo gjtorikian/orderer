@@ -163,6 +163,10 @@ ib.on("error", (err, code, reqId) => {
         } else if (state == states.SELLING) {
           state = states.READY_TO_BUY;
         }
+      } else {
+        console.log(
+          `filled: ${filled} lastOrderId: ${lastOrderId} orderId: ${orderId}`
+        );
       }
     }
   );
