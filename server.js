@@ -127,7 +127,7 @@ ib.on("error", (err, code, reqId) => {
   console.error(`${err.message} - code: ${code} - reqId: ${reqId}`);
 })
   .on("position", (account, contract, pos, avgCost) => {
-    if (contract.symbol != "GME") {
+    if (contract.symbol != "GME" && pos != 0) {
       console.log(`Position: ${contract.symbol} - ${pos}`);
       positionsCount++;
     }
