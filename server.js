@@ -1,7 +1,5 @@
 const path = require("path");
-const posterPassword = Buffer.from(
-  process.env.POSTER_PASSWORD
-);
+const posterPassword = Buffer.from(process.env.POSTER_PASSWORD);
 
 const express = require("express");
 const cors = require("cors");
@@ -98,11 +96,11 @@ app.post("/place", function (req, res) {
       return res.status(202).send("Previous order hasn't finished yet");
     } else if (state === states.READY_TO_BUY) {
       ib.once("positionEnd", (positions) => {
-        console.log(`${positionsCount} positions`);
         if (positionsCount > 0) {
+          msg = `${positionsCount} positions already exist`;
           positionsCount = 0;
-          console.log(`${positionsCount} positions already exist`);
-          return res.send(`${positionsCount} positions already exist`);
+          console.log(msg);
+          return res.send(msg);
         }
 
         console.log("Entering BUYING state");
@@ -129,7 +127,9 @@ ib.on("error", (err, code, reqId) => {
   console.error(`${err.message} - code: ${code} - reqId: ${reqId}`);
 })
   .on("position", (account, contract, pos, avgCost) => {
-    positionsCount++;
+    if (contract.symbol != "GME") {
+      positionsCount++;
+    }
   })
   .on("nextValidId", (orderId) => {
     if (state == states.BUYING) {
