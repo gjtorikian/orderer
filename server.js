@@ -48,6 +48,7 @@ const ib = new (require("ib"))({
 });
 
 const WinPercentage = 1 + 0.16 / 100; // .16% * 500k = 20 * 8,000
+const WinCount = 2;
 
 exchangeOverrides = {
   SPCE: "NYSE",
@@ -94,6 +95,8 @@ app.post("/place", function (req, res) {
   }).once("openOrderEnd", function () {
     if (openOrders > 0) {
       return res.status(202).send("Previous order hasn't finished yet");
+    } else if (winTimes >= WinCount) {
+      return res.status(202).send(`Already won ${winTimes}, done for the day`);
     } else if (state === states.READY_TO_BUY) {
       ib.once("positionEnd", (positions) => {
         if (positionsCount > 0) {
@@ -122,6 +125,7 @@ ib.connect();
 let positionsCount = 0;
 let lastOrderId = 0;
 let lastOrderCompleted = false;
+let winTimes = 0;
 
 ib.on("error", (err, code, reqId) => {
   console.error(`${err.message} - code: ${code} - reqId: ${reqId}`);
@@ -157,6 +161,7 @@ ib.on("error", (err, code, reqId) => {
             lastOrderCompleted = false;
             state = states.SELLING;
             // set price to sell off of avgFillPrice, not original order submitted price
+            // this includes cost of commissions etc
             sequence[3] = avgFillPrice;
             console.log("Preparing to sell");
             ib.reqIds(1);
@@ -165,6 +170,7 @@ ib.on("error", (err, code, reqId) => {
             lastOrderCompleted = true;
           }
         } else if (state == states.SELLING) {
+          winTimes++;
           state = states.READY_TO_BUY;
         }
       }
