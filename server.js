@@ -49,6 +49,8 @@ const ib = new (require("ib"))({
 
 const WinPercentage = 1 + 0.16 / 100; // .16% * 500k = 20 * 8,000
 const WinCount = 2;
+let openOrders = 0;
+let message = "";
 
 exchangeOverrides = {
   SPCE: "NYSE",
@@ -59,7 +61,7 @@ const states = {
   READY_TO_BUY: "READY_TO_BUY",
   BUYING: "BUYING",
   // BOUGHT: "BOUGHT",
-  // READY_TO_SELL: "READY_TO_SELL",
+  READY_TO_SELL: "READY_TO_SELL",
   SELLING: "SELLING",
   // SOLD: "SOLD",
 };
@@ -81,42 +83,14 @@ app.get("/", async function (req, res) {
 
 app.post("/place", function (req, res) {
   let body = req.body;
-  let message = body.message;
+  message = body.message;
   let password = Buffer.from(req.headers.authorization || "");
 
   if (!timingSafeEqual(password, posterPassword)) {
     return res.sendStatus(404);
   }
 
-  let openOrders = 0;
-  // Check open orders
-  ib.once("openOrder", function (orderId, contract, order, orderState) {
-    openOrders++;
-  }).once("openOrderEnd", function () {
-    if (openOrders > 0) {
-      return res.status(202).send("Previous order hasn't finished yet");
-    } else if (winTimes >= WinCount) {
-      return res.status(202).send(`Already won ${winTimes}, done for the day`);
-    } else if (state === states.READY_TO_BUY) {
-      ib.once("positionEnd", (positions) => {
-        if (positionsCount > 0) {
-          msg = `${positionsCount} positions already exist`;
-          positionsCount = 0;
-          console.log(msg);
-          return res.send(msg);
-        }
-
-        console.log("Entering BUYING state");
-        state = states.BUYING;
-        sequence = message.split(" ");
-        ib.reqIds(1);
-        return res.sendStatus(200);
-      });
-
-      console.log("Requesting positions");
-      ib.reqPositions();
-    }
-  });
+  openOrders = 0;
   ib.reqOpenOrders();
 });
 
@@ -132,17 +106,18 @@ ib.on("error", (err, code, reqId) => {
 })
   .on("position", (account, contract, pos, avgCost) => {
     if (contract.symbol != "GME" && pos != 0) {
-      console.log(`Position: ${contract.symbol} - ${pos}`);
       positionsCount++;
     }
   })
   .on("nextValidId", (orderId) => {
+    console.log(`Next order Id ${orderId} in state ${state}`);
     if (state == states.BUYING) {
       performBuy(orderId);
-    } else if (state == states.SELLING) {
+    } else if (state == states.READY_TO_SELL) {
       console.log("Entering SELLING state");
       lastOrderId = 0;
       lastOrderCompleted = false;
+      state = states.SELLING;
       performSell(orderId);
     } else {
       console.log(`State is ${state}`);
@@ -151,7 +126,6 @@ ib.on("error", (err, code, reqId) => {
   .on(
     "orderStatus",
     (orderId, status, filled, remaining, avgFillPrice, ...args) => {
-      console.log(status);
       if (lastOrderId == orderId) {
         console.log(
           `Order #${orderId} filled in state ${state} (lastOrderCompleted = ${lastOrderCompleted})`
@@ -159,7 +133,7 @@ ib.on("error", (err, code, reqId) => {
         if (state == states.BUYING) {
           if (lastOrderCompleted) {
             lastOrderCompleted = false;
-            state = states.SELLING;
+            state = states.READY_TO_SELL;
             // set price to sell off of avgFillPrice, not original order submitted price
             // this includes cost of commissions etc
             sequence[3] = avgFillPrice;
@@ -170,12 +144,45 @@ ib.on("error", (err, code, reqId) => {
             lastOrderCompleted = true;
           }
         } else if (state == states.SELLING) {
-          winTimes++;
-          state = states.READY_TO_BUY;
+          if (lastOrderCompleted) {
+            winTimes++;
+            state = states.READY_TO_BUY;
+          } else {
+            // for some reason orderStatus is called twice for the same order
+            lastOrderCompleted = true;
+          }
         }
       }
     }
-  );
+  )
+  .on("openOrder", function (orderId, contract, order, orderState) {
+    // Check open orders
+    openOrders++;
+  })
+  .on("openOrderEnd", function () {
+    if (openOrders > 0) {
+      return res.status(202).send("Previous order hasn't finished yet");
+    } else if (winTimes >= WinCount) {
+      return res.status(202).send(`Already won ${winTimes}, done for the day`);
+    } else if (state === states.READY_TO_BUY) {
+      ib.once("positionEnd", (positions) => {
+        if (positionsCount > 0) {
+          msg = `After requesting positions: ${positionsCount} positions already exist`;
+          positionsCount = 0;
+          console.log(msg);
+          return res.send(msg);
+        }
+
+        console.log("Entering BUYING state");
+        state = states.BUYING;
+        sequence = message.split(" ");
+        ib.reqIds(1);
+        return res.sendStatus(200);
+      });
+
+      ib.reqPositions();
+    }
+  });
 
 function round(value, decimals) {
   return Number(Math.round(value + "e" + decimals) + "e-" + decimals);
