@@ -51,6 +51,7 @@ const WinPercentage = 1 + 0.16 / 100; // .16% * 500k = 20 * 8,000
 const WinCount = 2;
 let openOrders = 0;
 let message = "";
+let latestOrderRes = null;
 
 exchangeOverrides = {
   SPCE: "NYSE",
@@ -91,6 +92,7 @@ app.post("/place", function (req, res) {
   }
 
   openOrders = 0;
+  latestOrderRes = res;
   ib.reqOpenOrders();
 });
 
@@ -161,23 +163,27 @@ ib.on("error", (err, code, reqId) => {
   })
   .on("openOrderEnd", function () {
     if (openOrders > 0) {
-      return res.status(202).send("Previous order hasn't finished yet");
+      return latestOrderRes
+        .status(202)
+        .send("Previous order hasn't finished yet");
     } else if (winTimes >= WinCount) {
-      return res.status(202).send(`Already won ${winTimes}, done for the day`);
+      return latestOrderRes
+        .status(202)
+        .send(`Already won ${winTimes}, done for the day`);
     } else if (state === states.READY_TO_BUY) {
       ib.once("positionEnd", (positions) => {
         if (positionsCount > 0) {
           msg = `After requesting positions: ${positionsCount} positions already exist`;
           positionsCount = 0;
           console.log(msg);
-          return res.send(msg);
+          return latestOrderRes.send(msg);
         }
 
         console.log("Entering BUYING state");
         state = states.BUYING;
         sequence = message.split(" ");
         ib.reqIds(1);
-        return res.sendStatus(200);
+        return latestOrderRes.sendStatus(200);
       });
 
       ib.reqPositions();
