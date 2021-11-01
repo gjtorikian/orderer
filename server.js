@@ -162,6 +162,10 @@ ib.on("error", (err, code, reqId) => {
     openOrders++;
   })
   .on("openOrderEnd", function () {
+    if (latestOrderRes == null) {
+      return;
+    }
+
     if (openOrders > 0) {
       return latestOrderRes
         .status(202)
