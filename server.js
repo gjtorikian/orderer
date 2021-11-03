@@ -47,7 +47,7 @@ const ib = new (require("ib"))({
   port: 4003,
 });
 
-const WinPercentage = 1 + 0.16 / 100; // .16% * 500k = 20 * 8,000
+const WinPercentage = 1 + 0.2 / 100; // .16% * 500k = 20 * 8,000
 const WinCount = 2;
 let openOrders = 0;
 let message = "";
@@ -128,32 +128,19 @@ ib.on("error", (err, code, reqId) => {
   .on(
     "orderStatus",
     (orderId, status, filled, remaining, avgFillPrice, ...args) => {
-      if (lastOrderId == orderId) {
-        console.log(
-          `Order #${orderId} filled in state ${state} (lastOrderCompleted = ${lastOrderCompleted})`
-        );
+      if (lastOrderId == orderId && remaining == 0) {
         if (state == states.BUYING) {
-          if (lastOrderCompleted) {
-            lastOrderCompleted = false;
-            state = states.READY_TO_SELL;
-            // set price to sell off of avgFillPrice, not original order submitted price
-            // this includes cost of commissions etc
-            sequence[3] = avgFillPrice;
-            console.log("Preparing to sell");
-            ib.reqIds(1);
-          } else {
-            // for some reason orderStatus is called twice for the same order
-            lastOrderCompleted = true;
-          }
-        } else if (state == states.SELLING) {
-          if (lastOrderCompleted) {
-            winTimes++;
-            state = states.READY_TO_BUY;
-          } else {
-            // for some reason orderStatus is called twice for the same order
-            lastOrderCompleted = true;
-          }
+          lastOrderCompleted = false;
+          state = states.READY_TO_SELL;
+          // set price to sell off of avgFillPrice, not original order submitted price
+          // this includes cost of commissions etc
+          sequence[3] = avgFillPrice;
+          console.log("Preparing to sell");
+          ib.reqIds(1);
         }
+      } else if (state == states.SELLING) {
+        winTimes++;
+        state = states.READY_TO_BUY;
       }
     }
   )
