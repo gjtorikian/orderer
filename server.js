@@ -160,7 +160,7 @@ ib.on("error", (err, code, reqId) => {
         .send("Previous order hasn't finished yet");
     } else if (winTimes >= WinCount) {
       return latestOrderRes
-        .status(202)
+        .status(205)
         .send(`Already won ${winTimes}, done for the day`);
     } else if (state === states.READY_TO_BUY) {
       ib.once("positionEnd", (positions) => {
