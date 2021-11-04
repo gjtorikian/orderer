@@ -47,7 +47,8 @@ const ib = new (require("ib"))({
   port: 4003,
 });
 
-const WinPercentage = 1 + 0.2 / 100; // .16% * 500k = 20 * 8,000
+// .16% * 500k = 20 * 8,000; .3% takes care of commissions
+const WinPercentage = 1 + 0.3 / 100;
 const WinCount = 2;
 let openOrders = 0;
 let message = "";
