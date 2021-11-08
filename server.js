@@ -108,9 +108,7 @@ ib.on("error", (err, code, reqId) => {
   console.error(`${err.message} - code: ${code} - reqId: ${reqId}`);
 })
   .on("position", (account, contract, pos, avgCost) => {
-    if (contract.symbol != "GME" && pos != 0) {
-      positionsCount++;
-    }
+    positionsCount++;
   })
   .on("nextValidId", (orderId) => {
     console.log(`Next order Id ${orderId} in state ${state}`);
