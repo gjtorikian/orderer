@@ -108,6 +108,9 @@ ib.on("error", (err, code, reqId) => {
   console.error(`${err.message} - code: ${code} - reqId: ${reqId}`);
 })
   .on("position", (account, contract, pos, avgCost) => {
+    console.log(
+      `Position: ${account} - ${contract.symbol} - ${pos} - ${avgCost}`
+    );
     positionsCount++;
   })
   .on("nextValidId", (orderId) => {
@@ -115,7 +118,7 @@ ib.on("error", (err, code, reqId) => {
     if (state == states.BUYING) {
       performBuy(orderId);
     } else if (state == states.READY_TO_SELL) {
-      console.log("Entering SELLING state");
+      // console.log("Entering SELLING state");
       lastOrderId = 0;
       lastOrderCompleted = false;
       state = states.SELLING;
@@ -134,7 +137,7 @@ ib.on("error", (err, code, reqId) => {
           // set price to sell off of avgFillPrice, not original order submitted price
           // this includes cost of commissions etc
           sequence[3] = avgFillPrice;
-          console.log("Preparing to sell");
+          // console.log("Preparing to sell");
           ib.reqIds(1);
         }
       } else if (state == states.SELLING) {
@@ -161,15 +164,15 @@ ib.on("error", (err, code, reqId) => {
         .status(205)
         .send(`Already won ${winTimes}, done for the day`);
     } else if (state === states.READY_TO_BUY) {
-      ib.once("positionEnd", (positions) => {
+      ib.once("positionEnd", () => {
         if (positionsCount > 0) {
-          msg = `After requesting positions: ${positionsCount} positions already exist`;
+          msg = `Note: ${positionsCount} positions already exist`;
           positionsCount = 0;
           console.log(msg);
           return latestOrderRes.send(msg);
         }
 
-        console.log("Entering BUYING state");
+        // console.log("Entering BUYING state");
         state = states.BUYING;
         sequence = message.split(" ");
         ib.reqIds(1);
