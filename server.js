@@ -108,10 +108,11 @@ ib.on("error", (err, code, reqId) => {
   console.error(`${err.message} - code: ${code} - reqId: ${reqId}`);
 })
   .on("position", (account, contract, pos, avgCost) => {
-    console.log(
-      `Position: ${account} - ${contract.symbol} - ${pos} - ${avgCost}`
-    );
-    positionsCount++;
+    // sometimes IBKR spits out closed positions
+    if (pos != 0) {
+      console.log(`Position: ${contract.symbol} - ${pos} @ ${avgCost}`);
+      positionsCount++;
+    }
   })
   .on("nextValidId", (orderId) => {
     console.log(`Next order Id ${orderId} in state ${state}`);
