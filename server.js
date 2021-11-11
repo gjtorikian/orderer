@@ -199,6 +199,17 @@ function performBuy(orderId) {
   order = ib.order.limit("BUY", quantity, price);
   lastOrderId = orderId;
 
+  // if the other does not complete in full within 7
+  // seconds, cancel it.
+  setTimeout(
+    function (orderId) {
+      console.log(`Cancelling order #${orderId}`);
+      ib.cancelOrder(orderId);
+    },
+    7000,
+    orderId
+  );
+
   console.log(`Placing buy #${lastOrderId} of ${stock} @ ${price}`);
   ib.placeOrder(orderId, contract, order);
 }
