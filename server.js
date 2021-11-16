@@ -101,7 +101,6 @@ ib.connect();
 
 let positionsCount = 0;
 let lastOrderId = 0;
-let lastOrderCompleted = false;
 let winTimes = 0;
 
 ib.on("error", (err, code, reqId) => {
@@ -126,7 +125,6 @@ ib.on("error", (err, code, reqId) => {
     } else if (state == states.READY_TO_SELL) {
       // console.log("Entering SELLING state");
       lastOrderId = 0;
-      lastOrderCompleted = false;
       state = states.SELLING;
       performSell(orderId);
     } else {
@@ -136,12 +134,11 @@ ib.on("error", (err, code, reqId) => {
   .on(
     "orderStatus",
     (orderId, status, filled, remaining, avgFillPrice, ...args) => {
-      console.log(status);
-      console.log(avgFillPrice);
-      console.log(state);
-      if (lastOrderId == orderId && remaining == 0) {
+      cancelling =
+        (status == "PendingCancel" || /Cancelled$/.test(status)) &&
+        remaining != 0;
+      if (lastOrderId == orderId && (cancelling || remaining == 0)) {
         if (state == states.BUYING) {
-          lastOrderCompleted = false;
           state = states.READY_TO_SELL;
           // set price to sell off of avgFillPrice, not original order submitted price
           // this includes cost of commissions etc
@@ -207,10 +204,10 @@ function performBuy(orderId) {
   order = ib.order.limit("BUY", quantity, price);
   lastOrderId = orderId;
 
-  // if the order does not complete in full within 7
-  // seconds, cancel it.
+  // if the order does not complete in full soon enough, cancel it.
   setTimeout(
     function (orderId) {
+      latestOrderRes = null;
       console.log(`Cancelling order #${orderId}`);
       ib.cancelOrder(orderId);
       ib.reqOpenOrders();
