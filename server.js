@@ -105,7 +105,10 @@ let lastOrderCompleted = false;
 let winTimes = 0;
 
 ib.on("error", (err, code, reqId) => {
-  console.error(`${err.message} - code: ${code} - reqId: ${reqId}`);
+  console.error(
+    `${err.message} - code: ${JSON.stringify(code, null, 2)} - reqId: ${reqId}`
+  );
+  ib.reqOpenOrders();
 })
   .on("position", (account, contract, pos, avgCost) => {
     // sometimes IBKR spits out closed positions
@@ -199,7 +202,7 @@ function performBuy(orderId) {
   order = ib.order.limit("BUY", quantity, price);
   lastOrderId = orderId;
 
-  // if the other does not complete in full within 7
+  // if the order does not complete in full within 7
   // seconds, cancel it.
   setTimeout(
     function (orderId) {
