@@ -105,9 +105,12 @@ let lastOrderCompleted = false;
 let winTimes = 0;
 
 ib.on("error", (err, code, reqId) => {
-  console.error(
-    `${err.message} - code: ${JSON.stringify(code, null, 2)} - reqId: ${reqId}`
-  );
+  data = JSON.stringify(code, null, 2);
+
+  // 10148: "An attempt was made to cancel an order that had already been filled by the system."
+  if (code.code != 10148) {
+    console.error(`${err.message} - code: ${data} - reqId: ${reqId}`);
+  }
 })
   .on("position", (account, contract, pos, avgCost) => {
     // sometimes IBKR spits out closed positions
@@ -134,6 +137,8 @@ ib.on("error", (err, code, reqId) => {
     "orderStatus",
     (orderId, status, filled, remaining, avgFillPrice, ...args) => {
       console.log(status);
+      console.log(avgFillPrice);
+      console.log(state);
       if (lastOrderId == orderId && remaining == 0) {
         if (state == states.BUYING) {
           lastOrderCompleted = false;
