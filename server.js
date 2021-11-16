@@ -106,8 +106,9 @@ let winTimes = 0;
 ib.on("error", (err, code, reqId) => {
   data = JSON.stringify(code, null, 2);
 
+  // 202: "An active order on the IB server was cancelled."
   // 10148: "An attempt was made to cancel an order that had already been filled by the system."
-  if (code.code != 10148) {
+  if (code.code != 202 && code.code != 10148) {
     console.error(`${err.message} - code: ${data} - reqId: ${reqId}`);
   }
 })
@@ -134,10 +135,11 @@ ib.on("error", (err, code, reqId) => {
   .on(
     "orderStatus",
     (orderId, status, filled, remaining, avgFillPrice, ...args) => {
-      cancelling =
+      unfulfilledCancelled =
         (status == "PendingCancel" || /Cancelled$/.test(status)) &&
-        remaining != 0;
-      if (lastOrderId == orderId && (cancelling || remaining == 0)) {
+        remaining != 0 &&
+        avgFillPrice > 0;
+      if (lastOrderId == orderId && (unfulfilledCancelled || remaining == 0)) {
         if (state == states.BUYING) {
           state = states.READY_TO_SELL;
           // set price to sell off of avgFillPrice, not original order submitted price
