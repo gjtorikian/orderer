@@ -108,7 +108,6 @@ ib.on("error", (err, code, reqId) => {
   console.error(
     `${err.message} - code: ${JSON.stringify(code, null, 2)} - reqId: ${reqId}`
   );
-  ib.reqOpenOrders();
 })
   .on("position", (account, contract, pos, avgCost) => {
     // sometimes IBKR spits out closed positions
@@ -134,6 +133,7 @@ ib.on("error", (err, code, reqId) => {
   .on(
     "orderStatus",
     (orderId, status, filled, remaining, avgFillPrice, ...args) => {
+      console.log(status);
       if (lastOrderId == orderId && remaining == 0) {
         if (state == states.BUYING) {
           lastOrderCompleted = false;
@@ -208,6 +208,7 @@ function performBuy(orderId) {
     function (orderId) {
       console.log(`Cancelling order #${orderId}`);
       ib.cancelOrder(orderId);
+      ib.reqOpenOrders();
     },
     7000,
     orderId
