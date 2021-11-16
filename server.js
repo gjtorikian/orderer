@@ -145,7 +145,12 @@ ib.on("error", (err, code, reqId) => {
           // set price to sell off of avgFillPrice, not original order submitted price
           // this includes cost of commissions etc
           sequence[3] = avgFillPrice;
-          // console.log("Preparing to sell");
+
+          // if cancelled, use quantity of what was actually bought
+          if (unfulfilledCancelled) {
+            sequence[2] = filled;
+          }
+
           ib.reqIds(1);
         }
       } else if (state == states.SELLING) {
