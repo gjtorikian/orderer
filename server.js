@@ -108,7 +108,7 @@ ib.on("error", (err, code, reqId) => {
 
   // 202: "An active order on the IB server was cancelled."
   // 10148: "An attempt was made to cancel an order that had already been filled by the system."
-  if (code.code != 202 && code.code != 10148) {
+  if (code && code.code != 202 && code.code != 10148) {
     console.error(`${err.message} - code: ${data} - reqId: ${reqId}`);
   }
 })
