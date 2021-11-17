@@ -160,6 +160,8 @@ ib.on("error", (err, code, reqId) => {
     }
   )
   .on("openOrder", function (orderId, contract, order, orderState) {
+    console.log(JSON.stringify(order, null, 2));
+    console.log(orderState);
     // Check open orders
     openOrders++;
   })
