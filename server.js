@@ -94,6 +94,7 @@ app.post("/place", function (req, res) {
 
   openOrders = 0;
   latestOrderRes = res;
+
   ib.reqOpenOrders();
 });
 
@@ -136,9 +137,7 @@ ib.on("error", (err, code, reqId) => {
     "orderStatus",
     (orderId, status, filled, remaining, avgFillPrice, ...args) => {
       unfulfilledCancelled =
-        (status == "PendingCancel" || /Cancelled$/.test(status)) &&
-        remaining != 0 &&
-        avgFillPrice > 0;
+        isCancelled(status) && remaining != 0 && avgFillPrice > 0;
       if (lastOrderId == orderId && (unfulfilledCancelled || remaining == 0)) {
         if (state == states.BUYING) {
           state = states.READY_TO_SELL;
@@ -160,8 +159,6 @@ ib.on("error", (err, code, reqId) => {
     }
   )
   .on("openOrder", function (orderId, contract, order, orderState) {
-    console.log(JSON.stringify(order, null, 2));
-    console.log(orderState);
     // Check open orders
     openOrders++;
   })
@@ -219,14 +216,18 @@ function performBuy(orderId) {
       latestOrderRes = null;
       console.log(`Cancelling order #${orderId}`);
       ib.cancelOrder(orderId);
-      ib.reqOpenOrders();
+      state = states.READY_TO_BUY;
     },
-    7000,
+    10000,
     orderId
   );
 
   console.log(`Placing buy #${lastOrderId} of ${stock} @ ${price}`);
   ib.placeOrder(orderId, contract, order);
+}
+
+function isCancelled(status) {
+  return status == "PendingCancel" || /Cancelled$/.test(status);
 }
 
 function performSell(orderId) {
