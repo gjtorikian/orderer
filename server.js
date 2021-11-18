@@ -53,6 +53,7 @@ const WinCount = 2;
 let openOrders = 0;
 let message = "";
 let latestOrderRes = null;
+let latestOrderFilled = false;
 
 exchangeOverrides = {
   SPCE: "NYSE",
@@ -109,7 +110,14 @@ ib.on("error", (err, code, reqId) => {
 
   // 202: "An active order on the IB server was cancelled."
   // 10148: "An attempt was made to cancel an order that had already been filled by the system."
-  if (code && code.code != 202 && code.code != 10148) {
+  // 1100/1102: connectivity issues
+  if (
+    code &&
+    code.code != 202 &&
+    code.code != 10148 &&
+    code.code != 1100 &&
+    code.code != 1102
+  ) {
     console.error(`${err.message} - code: ${data} - reqId: ${reqId}`);
   }
 })
@@ -140,6 +148,8 @@ ib.on("error", (err, code, reqId) => {
         isCancelled(status) && remaining != 0 && avgFillPrice > 0;
       if (lastOrderId == orderId && (unfulfilledCancelled || remaining == 0)) {
         if (state == states.BUYING) {
+          latestOrderFilled = true;
+
           state = states.READY_TO_SELL;
           // set price to sell off of avgFillPrice, not original order submitted price
           // this includes cost of commissions etc
@@ -155,6 +165,7 @@ ib.on("error", (err, code, reqId) => {
       } else if (state == states.SELLING) {
         winTimes++;
         state = states.READY_TO_BUY;
+        latestOrderFilled = false;
       }
     }
   )
@@ -213,16 +224,20 @@ function performBuy(orderId) {
   // if the order does not complete in full soon enough, cancel it.
   setTimeout(
     function (orderId) {
-      latestOrderRes = null;
-      console.log(`Cancelling order #${orderId}`);
-      ib.cancelOrder(orderId);
-      state = states.READY_TO_BUY;
+      if (latestOrderFilled) {
+        latestOrderRes = null;
+        console.log(`Cancelling order #${orderId}`);
+        ib.cancelOrder(orderId);
+        state = states.READY_TO_BUY;
+      }
     },
     10000,
     orderId
   );
 
-  console.log(`Placing buy #${lastOrderId} of ${stock} @ ${price}`);
+  console.log(
+    `Placing buy #${lastOrderId} of ${stock}: ${quantity} @ ${price}`
+  );
   ib.placeOrder(orderId, contract, order);
 }
 
@@ -240,7 +255,9 @@ function performSell(orderId) {
   order = ib.order.limit("SELL", quantity, price);
   lastOrderId = orderId;
 
-  console.log(`Placing sell #${lastOrderId} of ${stock} @ ${price}`);
+  console.log(
+    `Placing sell #${lastOrderId} of ${stock}: ${quantity} @ ${price}`
+  );
   ib.placeOrder(orderId, contract, order);
 }
 
