@@ -165,7 +165,6 @@ ib.on("error", (err, code, reqId) => {
       } else if (state == states.SELLING) {
         winTimes++;
         state = states.READY_TO_BUY;
-        latestOrderFilled = false;
       }
     }
   )
@@ -224,12 +223,13 @@ function performBuy(orderId) {
   // if the order does not complete in full soon enough, cancel it.
   setTimeout(
     function (orderId) {
-      if (latestOrderFilled) {
+      if (!latestOrderFilled) {
         latestOrderRes = null;
         console.log(`Cancelling order #${orderId}`);
         ib.cancelOrder(orderId);
         state = states.READY_TO_BUY;
       }
+      latestOrderFilled = false;
     },
     10000,
     orderId
