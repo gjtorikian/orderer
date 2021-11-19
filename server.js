@@ -1,5 +1,12 @@
+if (process.env.NODE_ENV != "production") {
+  require("dotenv").config();
+}
+
 const path = require("path");
 const posterPassword = Buffer.from(process.env.POSTER_PASSWORD);
+
+const accountSid = process.env.TWILIO_ACCOUNT_SID; // Your Account SID from www.twilio.com/console
+const authToken = process.env.TWILIO_AUTH_TOKEN; // Your Auth Token from www.twilio.com/console
 
 const express = require("express");
 const cors = require("cors");
@@ -15,32 +22,7 @@ app.use(bodyParser.json());
 
 app.use(cors());
 
-class Interval {
-  constructor(f, n) {
-    this.fn = f;
-    this.repeatInterval = n;
-    this.handle = null;
-  }
-
-  get running() {
-    return this.handle !== null;
-  }
-
-  run(...args) {
-    if (!this.running) {
-      this.handle = setInterval(this.fn, this.repeatInterval, ...args);
-    } else {
-      // optionally throw, display msg, whatever
-    }
-    return this;
-  }
-
-  stop() {
-    clearInterval(this.handle);
-    this.handle = null;
-    return this;
-  }
-}
+const twilio = new require("twilio")(accountSid, authToken);
 
 const ib = new (require("ib"))({
   host: "127.0.0.1",
@@ -54,6 +36,7 @@ let openOrders = 0;
 let message = "";
 let latestOrderRes = null;
 let latestOrderFilled = false;
+let notifiedOfShort = false;
 
 exchangeOverrides = {
   SPCE: "NYSE",
@@ -121,11 +104,18 @@ ib.on("error", (err, code, reqId) => {
     console.error(`${err.message} - code: ${data} - reqId: ${reqId}`);
   }
 })
-  .on("position", (account, contract, pos, avgCost) => {
+  .on("position", async (account, contract, pos, avgCost) => {
     // sometimes IBKR spits out closed positions
     if (pos != 0) {
       console.log(`Position: ${contract.symbol} - ${pos} @ ${avgCost}`);
       positionsCount++;
+    }
+    if (pos < 0 && !notifiedOfShort) {
+      await twilio.messages.create({
+        body: "WARNING: Short position identified",
+        to: process.env.MY_NUMBER,
+        from: process.env.TWILIO_NUMBER,
+      });
     }
   })
   .on("nextValidId", (orderId) => {
@@ -161,10 +151,15 @@ ib.on("error", (err, code, reqId) => {
           }
 
           ib.reqIds(1);
+        } else if (state == states.SELLING) {
+          await twilio.messages.create({
+            body: "Congrats, you won",
+            to: process.env.MY_NUMBER,
+            from: process.env.TWILIO_NUMBER,
+          });
+          winTimes++;
+          state = states.READY_TO_BUY;
         }
-      } else if (state == states.SELLING) {
-        winTimes++;
-        state = states.READY_TO_BUY;
       }
     }
   )
@@ -182,15 +177,20 @@ ib.on("error", (err, code, reqId) => {
         .status(202)
         .send("Previous order hasn't finished yet");
     } else if (winTimes >= WinCount) {
-      return latestOrderRes
-        .status(205)
-        .send(`Already won ${winTimes}, done for the day`);
+      let msg = `Already won ${winTimes}, done for the day`;
+      await twilio.messages.create({
+        body: msg,
+        to: process.env.MY_NUMBER,
+        from: process.env.TWILIO_NUMBER,
+      });
+
+      return latestOrderRes.status(205).send(msg);
     } else if (state === states.READY_TO_BUY) {
       ib.once("positionEnd", () => {
         if (positionsCount > 0) {
           msg = `Note: ${positionsCount} positions already exist`;
           positionsCount = 0;
-          console.log(msg);
+          // console.log(msg);
           return latestOrderRes.send(msg);
         }
 
