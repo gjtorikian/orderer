@@ -133,7 +133,7 @@ ib.on("error", (err, code, reqId) => {
   })
   .on(
     "orderStatus",
-    (orderId, status, filled, remaining, avgFillPrice, ...args) => {
+    async (orderId, status, filled, remaining, avgFillPrice, ...args) => {
       unfulfilledCancelled =
         isCancelled(status) && remaining != 0 && avgFillPrice > 0;
       if (lastOrderId == orderId && (unfulfilledCancelled || remaining == 0)) {
@@ -167,7 +167,7 @@ ib.on("error", (err, code, reqId) => {
     // Check open orders
     openOrders++;
   })
-  .on("openOrderEnd", function () {
+  .on("openOrderEnd", async function () {
     if (latestOrderRes == null) {
       return;
     }
