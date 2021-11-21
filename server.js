@@ -31,7 +31,7 @@ const ib = new (require("ib"))({
 
 // .16% * 250k = 20 * 8,000; .25% takes care of commissions
 const WinPercentage = 1 + 0.25 / 100;
-const WinCount = 2;
+const WinCounterMax = 5;
 let openOrders = 0;
 let message = "";
 let latestOrderRes = null;
@@ -111,6 +111,7 @@ ib.on("error", (err, code, reqId) => {
       positionsCount++;
     }
     if (pos < 0 && !notifiedOfShort) {
+      notifiedOfShort = true;
       await twilio.messages.create({
         body: "WARNING: Short position identified",
         to: process.env.MY_NUMBER,
@@ -137,6 +138,10 @@ ib.on("error", (err, code, reqId) => {
       unfulfilledCancelled =
         isCancelled(status) && remaining != 0 && avgFillPrice > 0;
       if (lastOrderId == orderId && (unfulfilledCancelled || remaining == 0)) {
+        if (unfulfilledCancelled) {
+          state = states.BUYING;
+        }
+
         if (state == states.BUYING) {
           latestOrderFilled = true;
 
@@ -152,6 +157,8 @@ ib.on("error", (err, code, reqId) => {
 
           ib.reqIds(1);
         } else if (state == states.SELLING) {
+          notifiedOfShort = false;
+
           await twilio.messages.create({
             body: "Congrats, you won",
             to: process.env.MY_NUMBER,
@@ -176,15 +183,15 @@ ib.on("error", (err, code, reqId) => {
       return latestOrderRes
         .status(202)
         .send("Previous order hasn't finished yet");
-    } else if (winTimes >= WinCount) {
-      let msg = `Already won ${winTimes}, done for the day`;
+    } else if (winTimes >= WinCounterMax) {
+      let msg = `Already won ${winTimes} times, done for the day`;
       await twilio.messages.create({
         body: msg,
         to: process.env.MY_NUMBER,
         from: process.env.TWILIO_NUMBER,
       });
 
-      return latestOrderRes.status(205).send(msg);
+      return latestOrderRes.status(204).send(msg);
     } else if (state === states.READY_TO_BUY) {
       ib.once("positionEnd", () => {
         if (positionsCount > 0) {
