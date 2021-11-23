@@ -54,6 +54,16 @@ const states = {
 let state = states.READY_TO_BUY;
 let sequence = [];
 
+function log(msg) {
+  let tz = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
+  console.log(`${tz}: ${msg}`);
+}
+
+function error(msg) {
+  let tz = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
+  console.error(`${tz}: ${msg}`);
+}
+
 app.get("/", async function (req, res) {
   let password = Buffer.from(req.query.password || "");
 
@@ -101,13 +111,13 @@ ib.on("error", (err, code, reqId) => {
     code.code != 1100 &&
     code.code != 1102
   ) {
-    console.error(`${err.message} - code: ${data} - reqId: ${reqId}`);
+    error(`${err.message} - code: ${data} - reqId: ${reqId}`);
   }
 })
   .on("position", async (account, contract, pos, avgCost) => {
     // sometimes IBKR spits out closed positions
     if (pos != 0) {
-      console.log(`Position: ${contract.symbol} - ${pos} @ ${avgCost}`);
+      log(`Position: ${contract.symbol} - ${pos} @ ${avgCost}`);
       positionsCount++;
     }
     if (pos < 0 && !notifiedOfShort) {
@@ -120,16 +130,16 @@ ib.on("error", (err, code, reqId) => {
     }
   })
   .on("nextValidId", (orderId) => {
-    console.log(`Next order Id ${orderId} in state ${state}`);
+    log(`Next order Id ${orderId} in state ${state}`);
     if (state == states.BUYING) {
       performBuy(orderId);
     } else if (state == states.READY_TO_SELL) {
-      // console.log("Entering SELLING state");
+      // log("Entering SELLING state");
       lastOrderId = 0;
       state = states.SELLING;
       performSell(orderId);
     } else {
-      console.log(`State is ${state}`);
+      log(`State is ${state}`);
     }
   })
   .on(
@@ -197,11 +207,11 @@ ib.on("error", (err, code, reqId) => {
         if (positionsCount > 0) {
           msg = `Note: ${positionsCount} positions already exist`;
           positionsCount = 0;
-          // console.log(msg);
+          // log(msg);
           return latestOrderRes.send(msg);
         }
 
-        // console.log("Entering BUYING state");
+        // log("Entering BUYING state");
         state = states.BUYING;
         sequence = message.split(" ");
         ib.reqIds(1);
@@ -232,7 +242,7 @@ function performBuy(orderId) {
     function (orderId) {
       if (!latestOrderFilled) {
         latestOrderRes = null;
-        console.log(`Cancelling order #${orderId}`);
+        log(`Cancelling order #${orderId}`);
         ib.cancelOrder(orderId);
         state = states.READY_TO_BUY;
       }
@@ -242,9 +252,7 @@ function performBuy(orderId) {
     orderId
   );
 
-  console.log(
-    `Placing buy #${lastOrderId} of ${stock}: ${quantity} @ ${price}`
-  );
+  log(`Placing buy #${lastOrderId} of ${stock}: ${quantity} @ ${price}`);
   ib.placeOrder(orderId, contract, order);
 }
 
@@ -262,12 +270,10 @@ function performSell(orderId) {
   order = ib.order.limit("SELL", quantity, price);
   lastOrderId = orderId;
 
-  console.log(
-    `Placing sell #${lastOrderId} of ${stock}: ${quantity} @ ${price}`
-  );
+  log(`Placing sell #${lastOrderId} of ${stock}: ${quantity} @ ${price}`);
   ib.placeOrder(orderId, contract, order);
 }
 
 server.listen(port, function () {
-  console.log(`Listening on ${port}`);
+  log(`Listening on ${port}`);
 });
