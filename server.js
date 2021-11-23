@@ -168,14 +168,16 @@ ib.on("error", (err, code, reqId) => {
           ib.reqIds(1);
         } else if (state == states.SELLING) {
           notifiedOfShort = false;
-
-          await twilio.messages.create({
-            body: "Congrats, you won",
-            to: process.env.MY_NUMBER,
-            from: process.env.TWILIO_NUMBER,
-          });
-          winTimes++;
           state = states.READY_TO_BUY;
+
+          setTimeout(async function () {
+            await twilio.messages.create({
+              body: "Congrats, you won",
+              to: process.env.MY_NUMBER,
+              from: process.env.TWILIO_NUMBER,
+            });
+            winTimes++;
+          }, 3000);
         }
       }
     }
