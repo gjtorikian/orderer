@@ -77,7 +77,7 @@ app.get("/", async function (req, res) {
   ib.reqCurrentTime();
 });
 
-app.post("/place", function (req, res) {
+app.post("/place", async function (req, res) {
   let body = req.body;
   message = body.message;
   let password = Buffer.from(req.headers.authorization || "");
@@ -86,10 +86,19 @@ app.post("/place", function (req, res) {
     return res.sendStatus(404);
   }
 
-  openOrders = 0;
-  latestOrderRes = res;
+  if (!message.startsWith("b ")) {
+    await twilio.messages.create({
+      body: message,
+      to: process.env.MY_NUMBER,
+      from: process.env.TWILIO_NUMBER,
+    });
+    return res.sendStatus(202);
+  } else {
+    openOrders = 0;
+    latestOrderRes = res;
 
-  ib.reqOpenOrders();
+    ib.reqOpenOrders();
+  }
 });
 
 ib.connect();
@@ -169,10 +178,11 @@ ib.on("error", (err, code, reqId) => {
         } else if (state == states.SELLING) {
           notifiedOfShort = false;
           state = states.READY_TO_BUY;
-
+          msg = `Sold order #${orderId}`;
+          log(msg);
           setTimeout(async function () {
             await twilio.messages.create({
-              body: "Congrats, you won",
+              body: msg,
               to: process.env.MY_NUMBER,
               from: process.env.TWILIO_NUMBER,
             });
