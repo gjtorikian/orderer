@@ -54,14 +54,14 @@ const states = {
 let state = states.READY_TO_BUY;
 let sequence = [];
 
-function log(msg) {
+function log(str) {
   let tz = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
-  console.log(`${tz}: ${msg}`);
+  console.log(`${tz}: ${str}`);
 }
 
-function error(msg) {
+function error(str) {
   let tz = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
-  console.error(`${tz}: ${msg}`);
+  console.error(`${tz}: ${str}`);
 }
 
 app.get("/", async function (req, res) {
@@ -178,11 +178,11 @@ ib.on("error", (err, code, reqId) => {
         } else if (state == states.SELLING) {
           notifiedOfShort = false;
           state = states.READY_TO_BUY;
-          msg = `Sold order #${orderId}`;
-          log(msg);
+          let text = `Sold order #${orderId}`;
+          log(text);
           setTimeout(async function () {
             await twilio.messages.create({
-              body: msg,
+              body: text,
               to: process.env.MY_NUMBER,
               from: process.env.TWILIO_NUMBER,
             });
@@ -206,21 +206,21 @@ ib.on("error", (err, code, reqId) => {
         .status(202)
         .send("Previous order hasn't finished yet");
     } else if (winTimes >= WinCounterMax) {
-      let msg = `Already won ${winTimes} times, done for the day`;
+      let eodMsg = `Already won ${winTimes} times, done for the day`;
       await twilio.messages.create({
-        body: msg,
+        body: eodMsg,
         to: process.env.MY_NUMBER,
         from: process.env.TWILIO_NUMBER,
       });
 
-      return latestOrderRes.status(204).send(msg);
+      return latestOrderRes.status(204).send(eodMsg);
     } else if (state === states.READY_TO_BUY) {
       ib.once("positionEnd", () => {
         if (positionsCount > 0) {
-          msg = `Note: ${positionsCount} positions already exist`;
+          let note = `Note: ${positionsCount} positions already exist`;
           positionsCount = 0;
-          // log(msg);
-          return latestOrderRes.send(msg);
+          // log(note);
+          return latestOrderRes.send(note);
         }
 
         // log("Entering BUYING state");
