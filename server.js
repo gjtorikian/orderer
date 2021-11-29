@@ -178,15 +178,15 @@ ib.on("error", (err, code, reqId) => {
         } else if (state == states.SELLING) {
           notifiedOfShort = false;
           state = states.READY_TO_BUY;
-          let text = `Sold order #${orderId}`;
-          log(text);
           setTimeout(async function () {
+            winTimes++;
+            let text = `Sold order #${orderId} (${winTimes} / ${WinCounterMax})`;
+            log(text);
             await twilio.messages.create({
               body: text,
               to: process.env.MY_NUMBER,
               from: process.env.TWILIO_NUMBER,
             });
-            winTimes++;
           }, 3000);
         }
       }
