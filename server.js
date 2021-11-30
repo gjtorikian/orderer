@@ -260,7 +260,7 @@ function performBuy(orderId) {
       }
       latestOrderFilled = false;
     },
-    10000,
+    7500,
     orderId
   );
 
