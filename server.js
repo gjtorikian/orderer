@@ -78,26 +78,30 @@ app.get("/", async function (req, res) {
 });
 
 app.post("/place", async function (req, res) {
-  let body = req.body;
-  message = body.message;
-  let password = Buffer.from(req.headers.authorization || "");
+  try {
+    let body = req.body;
+    message = body.message;
+    let password = Buffer.from(req.headers.authorization || "");
 
-  if (!timingSafeEqual(password, posterPassword)) {
-    return res.sendStatus(404);
-  }
+    if (!timingSafeEqual(password, posterPassword)) {
+      return res.sendStatus(404);
+    }
 
-  if (!message.startsWith("b ")) {
-    await twilio.messages.create({
-      body: message,
-      to: process.env.MY_NUMBER,
-      from: process.env.TWILIO_NUMBER,
-    });
-    return res.sendStatus(202);
-  } else {
-    openOrders = 0;
-    latestOrderRes = res;
+    if (!message.startsWith("b ")) {
+      await twilio.messages.create({
+        body: message,
+        to: process.env.MY_NUMBER,
+        from: process.env.TWILIO_NUMBER,
+      });
+      return res.sendStatus(202);
+    } else {
+      openOrders = 0;
+      latestOrderRes = res;
 
-    ib.reqOpenOrders();
+      ib.reqOpenOrders();
+    }
+  } catch (err) {
+    res.status(500).send(err.message);
   }
 });
 
