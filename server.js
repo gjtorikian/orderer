@@ -26,7 +26,7 @@ const twilio = new require("twilio")(accountSid, authToken);
 
 const ib = new (require("ib"))({
   host: "127.0.0.1",
-  port: 4003,
+  port: 4001,
 });
 
 // .16% * 250k = 20 * 8,000; .25% takes care of commissions
