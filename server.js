@@ -220,7 +220,7 @@ ib.on("error", (err, code, reqId) => {
       return latestOrderRes.status(204).send(eodMsg);
     } else if (state === states.READY_TO_BUY) {
       ib.once("positionEnd", () => {
-        if (positionsCount > 0) {
+        if (positionsCount > 1) {
           let note = `Note: ${positionsCount} positions already exist`;
           positionsCount = 0;
           // log(note);
