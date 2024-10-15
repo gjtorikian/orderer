@@ -211,11 +211,12 @@ ib.on("error", (err, code, reqId) => {
         .send("Previous order hasn't finished yet");
     } else if (winTimes >= WinCounterMax) {
       let eodMsg = `Already won ${winTimes} times, done for the day`;
-      await twilio.messages.create({
-        body: eodMsg,
-        to: process.env.MY_NUMBER,
-        from: process.env.TWILIO_NUMBER,
-      });
+      console.log(eodMsg);
+      // await twilio.messages.create({
+      //   body: eodMsg,
+      //   to: process.env.MY_NUMBER,
+      //   from: process.env.TWILIO_NUMBER,
+      // });
 
       return latestOrderRes.status(204).send(eodMsg);
     } else if (state === states.READY_TO_BUY) {
