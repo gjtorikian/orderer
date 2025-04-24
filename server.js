@@ -32,7 +32,7 @@ const ib = new (require("ib"))({
 // .16% * 250k = 20 * 8,000; .25% takes care of commissions
 
 const WinPercentage = 1 / 100; // 1%
-const WinCounterMax = 2; // 5?
+const WinCounterMax = 3; // 5?
 let openOrders = 0;
 let message = "";
 let latestOrderRes = null;
