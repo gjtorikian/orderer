@@ -39,11 +39,6 @@ let latestOrderRes = null;
 let latestOrderFilled = false;
 let notifiedOfShort = false;
 
-exchangeOverrides = {
-  SPCE: "NYSE",
-  MSFT: "NYSE",
-};
-
 const states = {
   READY_TO_BUY: "READY_TO_BUY",
   BUYING: "BUYING",
@@ -250,7 +245,6 @@ function performBuy(orderId) {
   let price = parseFloat(sequence[3]);
 
   contract = ib.contract.stock(stock);
-  contract.exchange = exchangeOverrides[stock] || contract.exchange;
 
   order = ib.order.limit("BUY", quantity, price);
   lastOrderId = orderId;
