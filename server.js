@@ -51,17 +51,21 @@ let state = states.READY_TO_BUY;
 let sequence = [];
 
 function log(str) {
-  let tz = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
+  const tz = new Date().toLocaleString("en-US", {
+    timeZone: "America/New_York",
+  });
   console.log(`${tz}: ${str}`);
 }
 
 function error(str) {
-  let tz = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
+  const tz = new Date().toLocaleString("en-US", {
+    timeZone: "America/New_York",
+  });
   console.error(`${tz}: ${str}`);
 }
 
-app.get("/", async function (req, res) {
-  let password = Buffer.from(req.query.password || "");
+app.get("/", async (req, res) => {
+  const password = Buffer.from(req.query.password || "");
 
   if (!timingSafeEqual(password, posterPassword)) {
     return res.sendStatus(404);
@@ -73,11 +77,11 @@ app.get("/", async function (req, res) {
   ib.reqCurrentTime();
 });
 
-app.post("/place", async function (req, res) {
+app.post("/place", async (req, res) => {
   try {
-    let body = req.body;
+    const body = req.body;
     message = body.message;
-    let password = Buffer.from(req.headers.authorization || "");
+    const password = Buffer.from(req.headers.authorization || "");
 
     if (!timingSafeEqual(password, posterPassword)) {
       return res.sendStatus(404);
@@ -123,7 +127,7 @@ ib.on("error", (err, code, reqId) => {
     error(`${err.message} - code: ${data} - reqId: ${reqId}`);
   }
 })
-  .on("position", async (account, contract, pos, avgCost) => {
+  .on("position", async (_account, contract, pos, avgCost) => {
     // sometimes IBKR spits out closed positions
     if (pos != 0) {
       log(`Position: ${contract.symbol} - ${pos} @ ${avgCost}`);
@@ -153,7 +157,7 @@ ib.on("error", (err, code, reqId) => {
   })
   .on(
     "orderStatus",
-    async (orderId, status, filled, remaining, avgFillPrice, ...args) => {
+    async (orderId, status, filled, remaining, avgFillPrice, ..._args) => {
       unfulfilledCancelled =
         isCancelled(status) && remaining != 0 && avgFillPrice > 0;
       if (lastOrderId == orderId && (unfulfilledCancelled || remaining == 0)) {
@@ -178,9 +182,9 @@ ib.on("error", (err, code, reqId) => {
         } else if (state == states.SELLING) {
           notifiedOfShort = false;
           state = states.READY_TO_BUY;
-          setTimeout(async function () {
+          setTimeout(async () => {
             winTimes++;
-            let text = `Sold order #${orderId} (${winTimes} / ${WinCounterMax})`;
+            const text = `Sold order #${orderId} (${winTimes} / ${WinCounterMax})`;
             log(text);
             await twilio.messages.create({
               body: text,
@@ -192,11 +196,11 @@ ib.on("error", (err, code, reqId) => {
       }
     }
   )
-  .on("openOrder", function (orderId, contract, order, orderState) {
+  .on("openOrder", (_orderId, _contract, _order, _orderState) => {
     // Check open orders
     openOrders++;
   })
-  .on("openOrderEnd", async function () {
+  .on("openOrderEnd", async () => {
     if (latestOrderRes == null) {
       return;
     }
@@ -206,7 +210,7 @@ ib.on("error", (err, code, reqId) => {
         .status(202)
         .send("Previous order hasn't finished yet");
     } else if (winTimes >= WinCounterMax) {
-      let eodMsg = `Already won ${winTimes} times, done for the day`;
+      const eodMsg = `Already won ${winTimes} times, done for the day`;
       console.log(eodMsg);
       // await twilio.messages.create({
       //   body: eodMsg,
@@ -218,7 +222,7 @@ ib.on("error", (err, code, reqId) => {
     } else if (state === states.READY_TO_BUY) {
       ib.once("positionEnd", () => {
         if (positionsCount > 1) {
-          let note = `Note: ${positionsCount} positions already exist`;
+          const note = `Note: ${positionsCount} positions already exist`;
           positionsCount = 0;
           // log(note);
           return latestOrderRes.send(note);
@@ -240,9 +244,9 @@ function round(value, decimals) {
 }
 
 function performBuy(orderId) {
-  let stock = sequence[1];
-  let quantity = parseInt(sequence[2]);
-  let price = parseFloat(sequence[3]);
+  const stock = sequence[1];
+  const quantity = parseInt(sequence[2]);
+  const price = parseFloat(sequence[3]);
 
   contract = ib.contract.stock(stock);
 
@@ -251,7 +255,7 @@ function performBuy(orderId) {
 
   // if the order does not complete in full soon enough, cancel it.
   setTimeout(
-    function (orderId) {
+    (orderId) => {
       if (!latestOrderFilled) {
         latestOrderRes = null;
         log(`Cancelling order #${orderId}`);
@@ -273,9 +277,9 @@ function isCancelled(status) {
 }
 
 function performSell(orderId) {
-  let stock = sequence[1];
-  let quantity = parseInt(sequence[2]);
-  let price = round(WinPercentage * parseFloat(sequence[3]), 2);
+  const stock = sequence[1];
+  const quantity = parseInt(sequence[2]);
+  const price = round(WinPercentage * parseFloat(sequence[3]), 2);
 
   contract = ib.contract.stock(stock);
 
@@ -286,6 +290,6 @@ function performSell(orderId) {
   ib.placeOrder(orderId, contract, order);
 }
 
-server.listen(port, function () {
+server.listen(port, () => {
   log(`Listening on ${port}`);
 });
