@@ -29,8 +29,9 @@ const ib = new (require("ib"))({
   port: 4001,
 });
 
-// .16% * 250k = 20 * 8,000; .25% takes care of commissions
+const MaxSpend = 40000;
 
+// .16% * 250k = 20 * 8,000; .25% takes care of commissions
 const WinPercentage = 1 + 1 / 100; // 1%
 const WinCounterMax = 5;
 let openOrders = 0;
@@ -245,8 +246,11 @@ function round(value, decimals) {
 
 function performBuy(orderId) {
   const stock = sequence[1];
-  const quantity = parseInt(sequence[2]);
-  const price = parseFloat(sequence[3]);
+  const price = parseFloat(sequence[2]);
+
+  let quantity = MaxSpend / price;
+  // round down to the nearest ten
+  quantity = Math.floor(quantity / 10) * 10;
 
   contract = ib.contract.stock(stock);
 
