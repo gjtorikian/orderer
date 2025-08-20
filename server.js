@@ -29,7 +29,7 @@ const ib = new (require("ib"))({
   port: 4001,
 });
 
-const MaxSpend = 40000;
+const MaxSpend = 75000;
 
 // .16% * 250k = 20 * 8,000; .25% takes care of commissions
 const WinPercentage = 1 + 1 / 100; // 1%
