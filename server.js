@@ -29,7 +29,7 @@ const ib = new (require("ib"))({
   port: 4001,
 });
 
-const MaxSpend = 75000;
+const MaxSpend = 100000;
 
 // .16% * 250k = 20 * 8,000; .25% takes care of commissions
 const WinPercentage = 1 + 1 / 100; // 1%
@@ -49,6 +49,11 @@ const states = {
   // SOLD: "SOLD",
 };
 let state = states.READY_TO_BUY;
+let currentTrade = {
+  price: 0,
+  quantity: 0,
+  symbol: "",
+};
 let sequence = [];
 
 function log(str) {
@@ -172,11 +177,11 @@ ib.on("error", (err, code, reqId) => {
           state = states.READY_TO_SELL;
           // set price to sell off of avgFillPrice, not original order submitted price
           // this includes cost of commissions etc
-          sequence[3] = avgFillPrice;
+          currentTrade.price = avgFillPrice;
 
           // if cancelled, use quantity of what was actually bought
           if (unfulfilledCancelled) {
-            sequence[2] = filled;
+            currentTrade.quantity = filled;
           }
 
           ib.reqIds(1);
@@ -232,6 +237,7 @@ ib.on("error", (err, code, reqId) => {
         // log("Entering BUYING state");
         state = states.BUYING;
         sequence = message.split(" ");
+        
         ib.reqIds(1);
         return latestOrderRes.sendStatus(200);
       });
@@ -252,6 +258,10 @@ function performBuy(orderId) {
   // round down to the nearest ten
   quantity = Math.floor(quantity / 10) * 10;
 
+  currentTrade.symbol = stock;
+  currentTrade.price = price;
+  currentTrade.quantity = quantity;
+  
   contract = ib.contract.stock(stock);
 
   order = ib.order.limit("BUY", quantity, price);
@@ -281,9 +291,9 @@ function isCancelled(status) {
 }
 
 function performSell(orderId) {
-  const stock = sequence[1];
-  const quantity = parseInt(sequence[2]);
-  const price = round(WinPercentage * parseFloat(sequence[3]), 2);
+  const stock = currentTrade.symbol;
+  const quantity = currentTrade.quantity;
+  const price = round(WinPercentage * currentTrade.price, 2);
 
   contract = ib.contract.stock(stock);
 
