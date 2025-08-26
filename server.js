@@ -153,7 +153,7 @@ ib.on("error", (err, code, reqId) => {
     if (state == states.BUYING) {
       performBuy(orderId);
     } else if (state == states.READY_TO_SELL) {
-      // log("Entering SELLING state");
+      log("Entering SELLING state");
       lastOrderId = 0;
       state = states.SELLING;
       performSell(orderId);
@@ -217,7 +217,7 @@ ib.on("error", (err, code, reqId) => {
         .send("Previous order hasn't finished yet");
     } else if (winTimes >= WinCounterMax) {
       const eodMsg = `Already won ${winTimes} times, done for the day`;
-      console.log(eodMsg);
+      log(eodMsg);
       // await twilio.messages.create({
       //   body: eodMsg,
       //   to: process.env.MY_NUMBER,
@@ -237,7 +237,7 @@ ib.on("error", (err, code, reqId) => {
         // log("Entering BUYING state");
         state = states.BUYING;
         sequence = message.split(" ");
-        
+
         ib.reqIds(1);
         return latestOrderRes.sendStatus(200);
       });
@@ -261,7 +261,9 @@ function performBuy(orderId) {
   currentTrade.symbol = stock;
   currentTrade.price = price;
   currentTrade.quantity = quantity;
-  
+
+  log(`Placing buy #${orderId} of ${stock}: ${quantity} @ ${price}`);
+
   contract = ib.contract.stock(stock);
 
   order = ib.order.limit("BUY", quantity, price);
@@ -294,6 +296,8 @@ function performSell(orderId) {
   const stock = currentTrade.symbol;
   const quantity = currentTrade.quantity;
   const price = round(WinPercentage * currentTrade.price, 2);
+
+  log(`Placing sell #${orderId} of ${stock}: ${quantity} @ ${price}`);
 
   contract = ib.contract.stock(stock);
 
