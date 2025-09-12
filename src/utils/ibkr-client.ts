@@ -4,13 +4,6 @@ import type { Order } from '@stoqey/ib';
 import { IBKR_CONFIG } from '../config/constants';
 import { log, error } from './logger';
 
-export interface IBKRContract {
-  symbol: string;
-  secType: 'STK' | 'OPT' | 'FUT' | 'FOREX';
-  exchange: string;
-  currency: string;
-}
-
 export class IBKRClient {
   private static instance: IBKRClient;
   private connected: boolean = false;
@@ -41,14 +34,14 @@ export class IBKRClient {
       process.env.IBKR_CLIENT_ID = IBKR_CONFIG.clientId.toString();
 
       log(`Connecting to IBKR at ${IBKR_CONFIG.host}:${IBKR_CONFIG.port} with client ID ${IBKR_CONFIG.clientId}`);
-      
+
       await ibkr();
-      
+
       this.ordersManager = Orders.Instance;
       this.marketDataManager = MarketDataManager.Instance;
       this.accountSummary = AccountSummary.Instance;
       this.events = IBKREvents.Instance;
-      
+
       this.connected = true;
       log('Successfully connected to IBKR');
     } catch (err: any) {
@@ -99,7 +92,7 @@ export class IBKRClient {
 
       log(`Placing ${orderDetails.action} order for ${orderDetails.totalQuantity} shares of ${contract.symbol}`);
       const success = await this.ordersManager.placeOrder(contract, order);
-      
+
       if (success) {
         // Return a basic order object with generated ID
         return {
