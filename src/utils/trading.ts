@@ -26,7 +26,7 @@ export async function performBuy(
     log(`Creating contract for ${stock}`);
     const contract = await ibkrClient.createContract(stock);
     
-    const order = {
+    const orderDetails = {
       action: 'BUY' as const,
       totalQuantity: quantity,
       orderType: 'LIMIT' as const,
@@ -35,9 +35,9 @@ export async function performBuy(
     };
 
     log(`Placing buy order of ${stock}: ${quantity} @ ${price}`);
-    const placedOrder = await ibkrClient.placeOrder(contract, order);
+    const placedOrder = await ibkrClient.placeOrder(contract, orderDetails);
     
-    globalState.lastOrderId = placedOrder.orderId || placedOrder.id || `buy-${Date.now()}`;
+    globalState.lastOrderId = placedOrder.orderId || `buy-${Date.now()}`;
     log(`Placed buy order #${globalState.lastOrderId}`);
 
     // Set timeout to cancel if not filled
@@ -85,7 +85,7 @@ export async function performSell(
     log(`Creating contract for sell order ${stock}`);
     const contract = await ibkrClient.createContract(stock);
     
-    const order = {
+    const orderDetails = {
       action: 'SELL' as const,
       totalQuantity: quantity,
       orderType: 'LIMIT' as const,
@@ -94,9 +94,9 @@ export async function performSell(
     };
 
     log(`Placing sell order of ${stock}: ${quantity} @ ${price}`);
-    const placedOrder = await ibkrClient.placeOrder(contract, order);
+    const placedOrder = await ibkrClient.placeOrder(contract, orderDetails);
     
-    globalState.lastOrderId = placedOrder.orderId || placedOrder.id || `sell-${Date.now()}`;
+    globalState.lastOrderId = placedOrder.orderId || `sell-${Date.now()}`;
     log(`Placed sell order #${globalState.lastOrderId}`);
 
   } catch (err: any) {
