@@ -9,7 +9,10 @@
   "homepage": "",
   "repository": "",
   "scripts": {
-    "server": "node server.js"
+    "lint": "biome check",
+    "lint:fix": "biome check --write",
+    "build": "tsc",
+    "server": "npm run build && node dist/server.js"
   },
   "dependencies": {
     "body-parser": "^1.19.0",
@@ -27,6 +30,11 @@
   "main": "./server.js",
   "license": "MIT",
   "devDependencies": {
-    "dotenv": "^10.0.0"
+    "@biomejs/biome": "2.2.4",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.3.1",
+    "dotenv": "^10.0.0",
+    "typescript": "^5.9.2"
   }
 }

@@ -2,3 +2,4 @@ node_modules/
 .sass-cache
 .env
 script/send_order
+dist/
