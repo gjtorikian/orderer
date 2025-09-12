@@ -11,9 +11,17 @@ export const MaxSpend: number = 100000;
 export const WinPercentage: number = 1 + 1 / 100; // 1%
 export const WinCounterMax: number = 2;
 
+// Legacy IB config (keeping for reference)
 export const IB_CONFIG = {
   host: "127.0.0.1",
   port: 4001,
+};
+
+// New @stoqey/ibkr configuration
+export const IBKR_CONFIG = {
+  host: process.env.IBKR_HOST || "127.0.0.1",
+  port: Number(process.env.IBKR_PORT) || 7497,
+  clientId: Number(process.env.IBKR_CLIENT_ID) || 123,
 };
 
 export const TWILIO_CONFIG = {

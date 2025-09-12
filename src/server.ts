@@ -5,17 +5,12 @@ import express from "express";
 import * as http from "http";
 import * as path from "path";
 
-import { IB_CONFIG, port, TWILIO_CONFIG } from "./config/constants";
-import { handleError } from "./events/error";
-import { handleNextValidId } from "./events/nextValidId";
-import { handleOpenOrder } from "./events/openOrder";
-import { handleOpenOrderEnd } from "./events/openOrderEnd";
-import { handleOrderStatus } from "./events/orderStatus";
-import { handlePosition } from "./events/position";
+import { port, TWILIO_CONFIG } from "./config/constants";
 import { createIndexRoute } from "./routes/index";
 import { createPlaceRoute } from "./routes/place";
 import { type GlobalState, States } from "./types";
-import { log } from "./utils/logger";
+import { log, error } from "./utils/logger";
+import { IBKRClient } from "./utils/ibkr-client";
 
 const app: express.Application = express();
 const server: http.Server = http.createServer(app);
@@ -28,8 +23,6 @@ const twilio = require("twilio")(
   TWILIO_CONFIG.accountSid,
   TWILIO_CONFIG.authToken,
 );
-
-const ib = new (require("ib"))(IB_CONFIG);
 
 const globalState: GlobalState = {
   state: States.READY_TO_BUY,
@@ -49,68 +42,53 @@ const globalState: GlobalState = {
   winTimes: 0,
 };
 
-app.get("/", createIndexRoute(ib));
-app.post("/place", createPlaceRoute(globalState, twilio, ib));
+const ibkrClient = IBKRClient.getInstance();
 
-ib.connect();
+app.get("/", createIndexRoute());
+app.post("/place", createPlaceRoute(globalState, twilio));
 
-ib.on("error", (err: Error, code: any, reqId: number) => {
-  handleError(err, code, reqId);
-})
-  .on(
-    "position",
-    async (
-      _account: string,
-      contract: any,
-      pos: number,
-      avgCost: number,
-    ): Promise<void> => {
-      await handlePosition(
-        globalState,
-        twilio,
-        _account,
-        contract,
-        pos,
-        avgCost,
-      );
-    },
-  )
-  .on("nextValidId", (orderId: number): void => {
-    handleNextValidId(globalState, ib, orderId);
-  })
-  .on(
-    "orderStatus",
-    async (
-      orderId: number,
-      status: string,
-      filled: number,
-      remaining: number,
-      avgFillPrice: number,
-      ..._args: any[]
-    ): Promise<void> => {
-      await handleOrderStatus(
-        globalState,
-        twilio,
-        ib,
-        orderId,
-        status,
-        filled,
-        remaining,
-        avgFillPrice,
-        ..._args,
-      );
-    },
-  )
-  .on(
-    "openOrder",
-    (_orderId: number, _contract: any, _order: any, _orderState: any): void => {
-      handleOpenOrder(globalState, _orderId, _contract, _order, _orderState);
-    },
-  )
-  .on("openOrderEnd", async (): Promise<void | express.Response> => {
-    await handleOpenOrderEnd(globalState, ib);
+// Initialize IBKR connection
+async function initializeIBKR(): Promise<void> {
+  try {
+    log("Initializing IBKR connection...");
+    await ibkrClient.connect();
+    log("IBKR connected successfully");
+    
+    // Subscribe to trade updates - the library handles everything automatically
+    ibkrClient.subscribeToOrderUpdates((trade: any) => {
+      log(`Trade update: ${JSON.stringify(trade)}`);
+      // The @stoqey/ibkr library automatically updates orders and trades
+      // We can access them via ibkrClient.getTrades() and ibkrClient.getOpenOrders()
+    });
+    
+  } catch (err: any) {
+    error(`Failed to initialize IBKR: ${err.message}`);
+    // Retry connection in 30 seconds
+    setTimeout(initializeIBKR, 30000);
+  }
+}
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  log('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    log('Server closed');
+    process.exit(0);
   });
+});
 
+process.on('SIGINT', () => {
+  log('SIGINT received, shutting down gracefully');
+  server.close(() => {
+    log('Server closed');
+    process.exit(0);
+  });
+});
+
+// Start everything
 server.listen(port, (): void => {
   log(`Listening on ${port}`);
+  
+  // Initialize IBKR after server starts
+  setTimeout(initializeIBKR, 1000);
 });

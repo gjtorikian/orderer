@@ -1,21 +1,25 @@
+// Legacy nextValidId handler - now handled differently in @stoqey/ibkr
+// The new IBKR library handles order IDs internally
+
 import { type GlobalState, States } from "../types";
 import { log } from "../utils/logger";
 import { performBuy, performSell } from "../utils/trading";
 
-export function handleNextValidId(
+export async function handleNextValidId(
   globalState: GlobalState,
-  ib: any,
-  orderId: number,
-): void {
-  log(`Next order Id ${orderId} in state ${globalState.state}`);
-
+  orderId: string | number,
+): Promise<void> {
+  log(`Legacy nextValidId handler called with ID ${orderId} in state ${globalState.state}`);
+  
+  // In the new system, we don't rely on nextValidId events
+  // Instead, we trigger buy/sell operations based on state changes
+  
   if (globalState.state == States.BUYING) {
-    performBuy(orderId, ib, globalState);
+    await performBuy(globalState);
   } else if (globalState.state == States.READY_TO_SELL) {
     log("Entering SELLING state");
-    globalState.lastOrderId = 0;
     globalState.state = States.SELLING;
-    performSell(orderId, ib, globalState);
+    await performSell(globalState);
   } else {
     log(`State is ${globalState.state}`);
   }
