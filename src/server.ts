@@ -13,6 +13,7 @@ import { handleOpenOrderEnd } from "./events/openOrderEnd";
 import { handleOrderStatus } from "./events/orderStatus";
 import { handlePosition } from "./events/position";
 import { createIndexRoute } from "./routes/index";
+import { createMessageRoute } from "./routes/message";
 import { createPlaceRoute } from "./routes/place";
 import { type GlobalState, States } from "./types";
 import { log } from "./utils/logger";
@@ -51,6 +52,7 @@ const globalState: GlobalState = {
 
 app.get("/", createIndexRoute(ib));
 app.post("/place", createPlaceRoute(globalState, twilio, ib));
+app.post("/message", createMessageRoute());
 
 ib.connect();
 
