@@ -15,6 +15,7 @@ export function createMessageRoute(): express.RequestHandler {
       }
 
       console.log(message);
+      return res.sendStatus(204);
     } catch (err: any) {
       res.status(500).send(err.message);
     }
