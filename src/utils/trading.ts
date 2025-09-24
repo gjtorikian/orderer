@@ -1,4 +1,5 @@
-import { MaxSpend, WinPercentage } from "../config/constants";
+import { Contract, Order, OrderAction, OrderType, SecType, TimeInForce } from "@stoqey/ib";
+import { MaxSpend, WinPercentage, IBKR_ACCOUNT_ID } from "../config/constants";
 import { type GlobalState, States } from "../types";
 import { log } from "./logger";
 
@@ -23,8 +24,22 @@ export function performBuy(
 
   log(`Placing buy #${orderId} of ${stock}: ${quantity} @ ${price}`);
 
-  const contract = ib.contract.stock(stock);
-  const order = ib.order.limit("BUY", quantity, price);
+  const contract: Contract = {
+    symbol: stock,
+    secType: SecType.STK,
+  };
+
+  const order: Order = {
+    orderType: OrderType.LMT,
+    action: OrderAction.BUY,
+    lmtPrice: price,
+    orderId,
+    totalQuantity: quantity,
+    account: IBKR_ACCOUNT_ID,
+    tif: TimeInForce.DTC,
+  };
+
+  ib.placeOrder(orderId, contract, order);
   globalState.lastOrderId = orderId;
 
   setTimeout(
@@ -65,8 +80,23 @@ export function performSell(
 
   log(`Placing sell #${orderId} of ${stock}: ${quantity} @ ${price}`);
 
-  const contract = ib.contract.stock(stock);
-  const order = ib.order.limit("SELL", quantity, price);
+  const contract: Contract = {
+    symbol: stock,
+    secType: SecType.STK,
+  };
+
+  const order: Order = {
+    orderType: OrderType.LMT,
+    action: OrderAction.SELL,
+    lmtPrice: price,
+    orderId,
+    totalQuantity: quantity,
+    account: IBKR_ACCOUNT_ID,
+    tif: TimeInForce.GTC,
+  };
+
+  ib.placeOrder(orderId, contract, order);
+
   globalState.lastOrderId = orderId;
 
   log(

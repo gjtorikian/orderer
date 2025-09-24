@@ -22,3 +22,5 @@ export const TWILIO_CONFIG = {
   myNumber: process.env.MY_NUMBER,
   twilioNumber: process.env.TWILIO_NUMBER,
 };
+
+export const IBKR_ACCOUNT_ID = process.env.IBKR_ACCOUNT_ID!;
