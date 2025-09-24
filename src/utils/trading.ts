@@ -23,9 +23,12 @@ export async function performBuy(
   globalState.currentTrade.quantity = quantity;
 
   try {
+    globalState.state = States.BUYING;
+    globalState.latestOrderFilled = false;
+
     log(`Creating contract for ${stock}`);
     const contract = await ibkrClient.createContract(stock);
-    
+
     const orderDetails = {
       action: 'BUY' as const,
       totalQuantity: quantity,
@@ -36,7 +39,7 @@ export async function performBuy(
 
     log(`Placing buy order of ${stock}: ${quantity} @ ${price}`);
     const placedOrder = await ibkrClient.placeOrder(contract, orderDetails);
-    
+
     globalState.lastOrderId = placedOrder.orderId || `buy-${Date.now()}`;
     log(`Placed buy order #${globalState.lastOrderId}`);
 

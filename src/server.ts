@@ -11,6 +11,7 @@ import { createPlaceRoute } from "./routes/place";
 import { type GlobalState, States } from "./types";
 import { log, error } from "./utils/logger";
 import { IBKRClient } from "./utils/ibkr-client";
+import { IBKRMonitor } from "./utils/ibkr-monitor";
 
 const app: express.Application = express();
 const server: http.Server = http.createServer(app);
@@ -43,6 +44,7 @@ const globalState: GlobalState = {
 };
 
 const ibkrClient = IBKRClient.getInstance();
+const ibkrMonitor = IBKRMonitor.getInstance(globalState, twilio);
 
 app.get("/", createIndexRoute());
 app.post("/place", createPlaceRoute(globalState, twilio));
@@ -54,12 +56,8 @@ async function initializeIBKR(): Promise<void> {
     await ibkrClient.connect();
     log("IBKR connected successfully");
     
-    // Subscribe to trade updates - the library handles everything automatically
-    ibkrClient.subscribeToOrderUpdates((trade: any) => {
-      log(`Trade update: ${JSON.stringify(trade)}`);
-      // The @stoqey/ibkr library automatically updates orders and trades
-      // We can access them via ibkrClient.getTrades() and ibkrClient.getOpenOrders()
-    });
+    // Start monitoring for order updates
+    ibkrMonitor.startMonitoring();
     
   } catch (err: any) {
     error(`Failed to initialize IBKR: ${err.message}`);
@@ -71,6 +69,7 @@ async function initializeIBKR(): Promise<void> {
 // Graceful shutdown
 process.on('SIGTERM', () => {
   log('SIGTERM received, shutting down gracefully');
+  ibkrMonitor.stopMonitoring();
   server.close(() => {
     log('Server closed');
     process.exit(0);
@@ -79,6 +78,7 @@ process.on('SIGTERM', () => {
 
 process.on('SIGINT', () => {
   log('SIGINT received, shutting down gracefully');
+  ibkrMonitor.stopMonitoring();
   server.close(() => {
     log('Server closed');
     process.exit(0);

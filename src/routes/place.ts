@@ -50,7 +50,7 @@ export function createPlaceRoute(
         const positions = ibkrClient.getPositions();
         const activePositions = positions.filter(p => p.position !== 0);
         
-        if (activePositions.length > 1) {
+        if (activePositions.length >= 2) {
           const note: string = `Note: ${activePositions.length} positions already exist`;
           return res.send(note);
         }
