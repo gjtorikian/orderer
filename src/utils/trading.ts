@@ -26,6 +26,8 @@ export function performBuy(
 
   const contract: Contract = {
     symbol: stock,
+    exchange: "SMART",
+    currency: "USD",
     secType: SecType.STK,
   };
 
