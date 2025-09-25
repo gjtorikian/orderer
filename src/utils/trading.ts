@@ -38,7 +38,8 @@ export function performBuy(
     orderId,
     totalQuantity: quantity,
     account: IBKR_ACCOUNT_ID,
-    tif: TimeInForce.DTC,
+    tif: TimeInForce.GTC,
+    transmit: true
   };
 
   ib.placeOrder(orderId, contract, order);
@@ -84,6 +85,8 @@ export function performSell(
 
   const contract: Contract = {
     symbol: stock,
+    exchange: "SMART",
+    currency: "USD",
     secType: SecType.STK,
   };
 
@@ -95,6 +98,8 @@ export function performSell(
     totalQuantity: quantity,
     account: IBKR_ACCOUNT_ID,
     tif: TimeInForce.GTC,
+    transmit: true,
+    outsideRth: true
   };
 
   ib.placeOrder(orderId, contract, order);
