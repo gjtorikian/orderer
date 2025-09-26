@@ -15,7 +15,8 @@ export function createMessageRoute(): express.RequestHandler {
         return res.sendStatus(404);
       }
 
-      await fs.appendFile("predictions.txt", message + "\n");
+      const date = new Date().toISOString().split('T')[0];
+      await fs.appendFile(`predictions/${date}.txt`, message + "\n");
       return res.sendStatus(204);
     } catch (err: any) {
       res.status(500).send(err.message);
