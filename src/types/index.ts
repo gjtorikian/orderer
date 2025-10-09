@@ -18,6 +18,7 @@ export interface GlobalState {
   openOrders: number;
   message: string;
   latestOrderRes: any | null;
+  latestOrderResSent: boolean;
   latestOrderFilled: boolean;
   notifiedOfShort: boolean;
   positionsCount: number;

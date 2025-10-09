@@ -43,6 +43,7 @@ const globalState: GlobalState = {
   openOrders: 0,
   message: "",
   latestOrderRes: null,
+  latestOrderResSent: false,
   latestOrderFilled: false,
   notifiedOfShort: false,
   positionsCount: 0,

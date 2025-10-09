@@ -30,6 +30,7 @@ export function createPlaceRoute(
       } else {
         globalState.openOrders = 0;
         globalState.latestOrderRes = res;
+        globalState.latestOrderResSent = false;
 
         ib.reqOpenOrders();
       }
