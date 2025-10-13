@@ -56,6 +56,7 @@ app.post("/place", createPlaceRoute(globalState, twilio, ib));
 app.post("/message", createMessageRoute());
 
 ib.connect();
+ib.reqGlobalCancel();
 ib.reqIds();
 
 ib.on(EventName.error, (err: Error, code: ErrorCode, reqId: number) => {
