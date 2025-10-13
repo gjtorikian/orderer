@@ -5,6 +5,11 @@ export enum States {
   SELLING = "SELLING",
 }
 
+export enum TradingMode {
+  PERCENTAGE = "PERCENTAGE",
+  FIXED_PROFIT = "FIXED_PROFIT",
+}
+
 export interface CurrentTrade {
   price: number;
   quantity: number;

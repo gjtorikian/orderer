@@ -1,6 +1,6 @@
 import { Contract, Order, OrderAction, OrderType, SecType, TimeInForce } from "@stoqey/ib";
-import { MaxSpend, WinPercentage, IBKR_ACCOUNT_ID } from "../config/constants";
-import { type GlobalState, States } from "../types";
+import { MaxSpend, WinPercentage, IBKR_ACCOUNT_ID, TRADING_MODE, FixedProfitAmount } from "../config/constants";
+import { type GlobalState, States, TradingMode } from "../types";
 import { log } from "./logger";
 
 export function round(value: number, decimals: number): number {
@@ -76,10 +76,14 @@ export function performSell(
 ): void {
   const stock: string = globalState.currentTrade.symbol;
   const quantity: number = globalState.currentTrade.quantity;
-  const price: number = round(
-    WinPercentage * globalState.currentTrade.price,
-    2,
-  );
+
+  let price: number;
+  if (TRADING_MODE === TradingMode.PERCENTAGE) {
+    price = round(WinPercentage * globalState.currentTrade.price, 2);
+  } else {
+    // FIXED_PROFIT mode: calculate price to achieve fixed profit amount
+    price = round(globalState.currentTrade.price + (FixedProfitAmount / quantity), 2);
+  }
 
   log(`Placing sell #${orderId} of ${stock}: ${quantity} @ ${price}`);
 
