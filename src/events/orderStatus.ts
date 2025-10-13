@@ -38,7 +38,7 @@ export async function handleOrderStatus(
         globalState.currentTrade.quantity = filled;
       }
 
-      ib.reqIds(1);
+      ib.reqIds();
     } else if (globalState.state == States.SELLING) {
       globalState.notifiedOfShort = false;
       globalState.state = States.READY_TO_BUY;

@@ -41,7 +41,7 @@ export async function handleOpenOrderEnd(
       globalState.state = States.BUYING;
       globalState.sequence = globalState.message.split(" ");
 
-      ib.reqIds(1);
+      ib.reqIds();
       return sendResponse(globalState.latestOrderRes!, 200);
     });
 
