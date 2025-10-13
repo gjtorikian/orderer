@@ -13,7 +13,7 @@ export const MaxSpend: number = 100000;
 export const WinPercentage: number = 1 + 1 / 100; // 1%
 export const WinCounterMax: number = 2;
 export const TRADING_MODE: TradingMode = TradingMode.PERCENTAGE;
-export const FixedProfitAmount: number = 100;
+export const FixedProfitAmount: number = 10;
 
 export const IB_CONFIG = {
   host: "127.0.0.1",
