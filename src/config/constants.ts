@@ -11,9 +11,9 @@ export const authToken: string = process.env.TWILIO_AUTH_TOKEN!;
 export const port: number = 5592;
 export const MaxSpend: number = 100000;
 export const WinPercentage: number = 1 + 1 / 100; // 1%
-export const WinCounterMax: number = 2;
+export const WinCounterMax: number = 50;
 export const TRADING_MODE: TradingMode = TradingMode.PERCENTAGE;
-export const FixedProfitAmount: number = 10;
+export const FixedProfitAmount: number = 100;
 
 export const IB_CONFIG = {
   host: "127.0.0.1",
