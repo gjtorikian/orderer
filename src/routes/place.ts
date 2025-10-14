@@ -20,7 +20,7 @@ export function createPlaceRoute(
         return res.sendStatus(404);
       }
 
-      if (!globalState.message.startsWith("b ") && !globalState.message.startsWith("s ")) {
+      if (!globalState.message.startsWith("b ")) {
         await twilio.messages.create({
           body: globalState.message,
           to: TWILIO_CONFIG.myNumber,

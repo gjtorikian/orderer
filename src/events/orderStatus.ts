@@ -46,11 +46,13 @@ export async function handleOrderStatus(
         globalState.winTimes++;
         const text: string = `Sold order #${orderId} (${globalState.winTimes} / ${WinCounterMax})`;
         log(text);
-        await twilio.messages.create({
-          body: text,
-          to: TWILIO_CONFIG.myNumber,
-          from: TWILIO_CONFIG.twilioNumber,
-        });
+        if (WinCounterMax <= 5 || globalState.winTimes % 5 == 0) {
+          await twilio.messages.create({
+            body: text,
+            to: TWILIO_CONFIG.myNumber,
+            from: TWILIO_CONFIG.twilioNumber,
+          });
+        }
       }, 3000);
     }
   }
