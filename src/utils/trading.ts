@@ -81,7 +81,7 @@ export function performSell(
   if (TRADING_MODE === TradingMode.PERCENTAGE) {
     price = round(WinPercentage * globalState.currentTrade.price, 2);
   } else {
-    // FIXED_PROFIT mode: calculate price to achieve fixed profit amount
+    // FIXED mode: calculate price to achieve fixed profit amount
     price = round(globalState.currentTrade.price + (FixedProfitAmount / quantity), 2);
   }
 

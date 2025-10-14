@@ -7,7 +7,7 @@ export enum States {
 
 export enum TradingMode {
   PERCENTAGE = "PERCENTAGE",
-  FIXED_PROFIT = "FIXED_PROFIT",
+  FIXED = "FIXED",
 }
 
 export interface CurrentTrade {
