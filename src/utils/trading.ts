@@ -1,7 +1,8 @@
 import { Contract, Order, OrderAction, OrderType, SecType, TimeInForce } from "@stoqey/ib";
-import { MaxSpend, WinPercentage, IBKR_ACCOUNT_ID, TRADING_MODE, FixedProfitAmount } from "../config/constants";
+import { MaxSpend, WinPercentage, LossPercentage, IBKR_ACCOUNT_ID, TRADING_MODE, FixedProfitAmount, FixedLossAmount } from "../config/constants";
 import { type GlobalState, States, TradingMode } from "../types";
 import { log } from "./logger";
+import crypto from 'node:crypto';
 
 export function round(value: number, decimals: number): number {
   return Number(Math.round(Number(value + "e" + decimals)) + "e-" + decimals);
@@ -76,16 +77,25 @@ export function performSell(
 ): void {
   const stock: string = globalState.currentTrade.symbol;
   const quantity: number = globalState.currentTrade.quantity;
+  const buyPrice: number = globalState.currentTrade.price;
 
-  let price: number;
+  // Calculate profit target price
+  let profitPrice: number;
   if (TRADING_MODE === TradingMode.PERCENTAGE) {
-    price = round(WinPercentage * globalState.currentTrade.price, 2);
+    profitPrice = round(WinPercentage * buyPrice, 2);
   } else {
     // FIXED mode: calculate price to achieve fixed profit amount
-    price = round(globalState.currentTrade.price + (FixedProfitAmount / quantity), 2);
+    profitPrice = round(buyPrice + (FixedProfitAmount / quantity), 2);
   }
 
-  log(`Placing sell #${orderId} of ${stock}: ${quantity} @ ${price}`);
+  // Calculate stop loss price
+  let stopLossPrice: number;
+  if (TRADING_MODE === TradingMode.PERCENTAGE) {
+    stopLossPrice = round(LossPercentage * buyPrice, 2);
+  } else {
+    // FIXED mode: calculate price for fixed loss amount
+    stopLossPrice = round(buyPrice - (FixedLossAmount / quantity), 2);
+  }
 
   const contract: Contract = {
     symbol: stock,
@@ -94,24 +104,48 @@ export function performSell(
     secType: SecType.STK,
   };
 
-  const order: Order = {
+  // Create OCA group identifier
+  const ocaGroup: string = `OCA_${orderId}_${crypto.randomBytes(6).toString('hex')}`;
+
+  // Order 1: Profit Target (Limit Order)
+  const profitOrder: Order = {
     orderType: OrderType.LMT,
     action: OrderAction.SELL,
-    lmtPrice: price,
+    lmtPrice: profitPrice,
     orderId,
     totalQuantity: quantity,
     account: IBKR_ACCOUNT_ID,
     tif: TimeInForce.GTC,
-    transmit: true,
-    outsideRth: true
+    transmit: false,  // Don't transmit yet
+    outsideRth: true,
+    ocaGroup,
+    ocaType: 1,  // Cancel all remaining orders on fill
   };
 
-  ib.placeOrder(orderId, contract, order);
+  // Order 2: Stop Loss
+  const stopLossOrder: Order = {
+    orderType: OrderType.STP,  // Stop order
+    action: OrderAction.SELL,
+    auxPrice: stopLossPrice,  // Stop trigger price
+    orderId: orderId + 1,
+    totalQuantity: quantity,
+    account: IBKR_ACCOUNT_ID,
+    tif: TimeInForce.GTC,
+    transmit: true,  // Transmit both orders
+    outsideRth: true,
+    ocaGroup,
+    ocaType: 1,  // Cancel all remaining orders on fill
+  };
 
+  log(`Placing OCA sell orders for ${stock}: ${quantity} shares`);
+  log(`  Profit target #${orderId}: LIMIT @ ${profitPrice}`);
+  log(`  Stop loss #${orderId + 1}: STOP @ ${stopLossPrice}`);
+
+  // Place both orders
+  ib.placeOrder(orderId, contract, profitOrder);
+  ib.placeOrder(orderId + 1, contract, stopLossOrder);
+
+  // Track both order IDs
   globalState.lastOrderId = orderId;
-
-  log(
-    `Placing sell #${globalState.lastOrderId} of ${stock}: ${quantity} @ ${price}`,
-  );
-  ib.placeOrder(orderId, contract, order);
+  globalState.stopLossOrderId = orderId + 1;
 }

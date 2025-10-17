@@ -14,6 +14,7 @@ export function handleNextValidId(
   } else if (globalState.state == States.READY_TO_SELL) {
     log("Entering SELLING state");
     globalState.lastOrderId = 0;
+    globalState.stopLossOrderId = 0;
     globalState.state = States.SELLING;
     performSell(orderId, ib, globalState);
   } else {

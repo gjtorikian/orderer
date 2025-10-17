@@ -28,5 +28,6 @@ export interface GlobalState {
   notifiedOfShort: boolean;
   positionsCount: number;
   lastOrderId: number;
+  stopLossOrderId: number;
   winTimes: number;
 }

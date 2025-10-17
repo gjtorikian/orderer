@@ -17,8 +17,14 @@ export async function handleOrderStatus(
   const unfulfilledCancelled: boolean =
     isCancelled(status) && remaining != 0 && avgFillPrice > 0;
 
+  // Check if this is either a buy order or one of the sell orders (profit target or stop loss)
+  const isBuyOrder: boolean = globalState.lastOrderId == orderId;
+  const isProfitTargetOrder: boolean = globalState.lastOrderId == orderId;
+  const isStopLossOrder: boolean = globalState.stopLossOrderId == orderId;
+  const isSellOrder: boolean = isProfitTargetOrder || isStopLossOrder;
+
   if (
-    globalState.lastOrderId == orderId &&
+    isBuyOrder &&
     (unfulfilledCancelled || remaining == 0)
   ) {
     if (unfulfilledCancelled) {
@@ -39,21 +45,36 @@ export async function handleOrderStatus(
       }
 
       ib.reqIds();
-    } else if (globalState.state == States.SELLING) {
-      globalState.notifiedOfShort = false;
-      globalState.state = States.READY_TO_BUY;
-      setTimeout(async (): Promise<void> => {
-        globalState.winTimes++;
-        const text: string = `Sold order #${orderId} (${globalState.winTimes} / ${WinCounterMax})`;
-        log(text);
-        if (WinCounterMax <= 5 || globalState.winTimes % 5 == 0) {
-          await twilio.messages.create({
-            body: text,
-            to: TWILIO_CONFIG.myNumber,
-            from: TWILIO_CONFIG.twilioNumber,
-          });
-        }
-      }, 3000);
     }
+  } else if (
+    isSellOrder &&
+    globalState.state == States.SELLING &&
+    (unfulfilledCancelled || remaining == 0)
+  ) {
+    globalState.notifiedOfShort = false;
+    globalState.state = States.READY_TO_BUY;
+
+    // Determine if this was a profit or loss
+    const wasProfit: boolean = isProfitTargetOrder;
+    const wasLoss: boolean = isStopLossOrder;
+
+    setTimeout(async (): Promise<void> => {
+      // Only increment win counter if profit target hit
+      if (wasProfit) {
+        globalState.winTimes++;
+      }
+
+      const orderType: string = wasProfit ? "PROFIT" : "STOP LOSS";
+      const text: string = `${orderType}: Sold order #${orderId} (${globalState.winTimes} / ${WinCounterMax})`;
+      log(text);
+
+      if (WinCounterMax <= 5 || globalState.winTimes % 5 == 0 || wasLoss) {
+        await twilio.messages.create({
+          body: text,
+          to: TWILIO_CONFIG.myNumber,
+          from: TWILIO_CONFIG.twilioNumber,
+        });
+      }
+    }, 3000);
   }
 }

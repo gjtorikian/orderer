@@ -48,6 +48,7 @@ const globalState: GlobalState = {
   notifiedOfShort: false,
   positionsCount: 0,
   lastOrderId: 0,
+  stopLossOrderId: 0,
   winTimes: 0,
 };
 
