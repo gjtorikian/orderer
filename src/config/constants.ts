@@ -15,7 +15,7 @@ export const LossPercentage: number = 1 - 5 / 100; // 5% loss (95% of buy price)
 export const WinCounterMax: number = 4;
 export const TRADING_MODE: TradingMode = TradingMode.PERCENTAGE;
 export const FixedProfitAmount: number = 100;
-export const FixedLossAmount: number = 50;
+export const FixedLossAmount: number = 500;
 
 export const IB_CONFIG = {
   host: "127.0.0.1",
