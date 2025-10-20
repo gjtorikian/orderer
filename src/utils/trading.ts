@@ -116,7 +116,7 @@ export function performSell(
     totalQuantity: quantity,
     account: IBKR_ACCOUNT_ID,
     tif: TimeInForce.GTC,
-    transmit: false,  // Don't transmit yet
+    transmit: true,  // Transmit order immediately
     outsideRth: true,
     ocaGroup,
     ocaType: 1,  // Cancel all remaining orders on fill
@@ -131,7 +131,7 @@ export function performSell(
     totalQuantity: quantity,
     account: IBKR_ACCOUNT_ID,
     tif: TimeInForce.GTC,
-    transmit: true,  // Transmit both orders
+    transmit: true,  // Transmit order immediately
     outsideRth: true,
     ocaGroup,
     ocaType: 1,  // Cancel all remaining orders on fill
