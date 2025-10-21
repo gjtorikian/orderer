@@ -1,6 +1,7 @@
 node_modules/
 .sass-cache
 .env
+*.tsbuildinfo
 script/send_order
 dist/
 predictions/*.txt

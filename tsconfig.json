@@ -20,7 +20,8 @@
       "@/*": [
         "*"
       ]
-    }
+    },
+    "incremental": true
   },
   "include": [
     "src/**/*"
