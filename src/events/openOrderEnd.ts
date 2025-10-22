@@ -2,6 +2,7 @@ import type * as express from "express";
 import { WinCounterMax } from "../config/constants";
 import { type GlobalState, States } from "../types";
 import { log } from "../utils/logger";
+import { performBuy } from "../utils/trading";
 
 export async function handleOpenOrderEnd(
   globalState: GlobalState,
@@ -41,7 +42,7 @@ export async function handleOpenOrderEnd(
       globalState.state = States.BUYING;
       globalState.sequence = globalState.message.split(" ");
 
-      ib.reqIds();
+      performBuy(ib, globalState);
       return sendResponse(globalState.latestOrderRes!, 200);
     });
 

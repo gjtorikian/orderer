@@ -1,7 +1,7 @@
 import { TWILIO_CONFIG, WinCounterMax } from "../config/constants";
 import { type GlobalState, States } from "../types";
 import { log } from "../utils/logger";
-import { isCancelled } from "../utils/trading";
+import { isCancelled, performSell } from "../utils/trading";
 
 export async function handleOrderStatus(
   globalState: GlobalState,
@@ -34,7 +34,6 @@ export async function handleOrderStatus(
     if (globalState.state == States.BUYING) {
       globalState.latestOrderFilled = true;
 
-      globalState.state = States.READY_TO_SELL;
       // set price to sell off of avgFillPrice, not original order submitted price
       // this includes cost of commissions etc
       globalState.currentTrade.price = avgFillPrice;
@@ -44,7 +43,13 @@ export async function handleOrderStatus(
         globalState.currentTrade.quantity = filled;
       }
 
-      ib.reqIds();
+      log("Entering SELLING state");
+      globalState.lastOrderId = 0;
+      globalState.stopLossOrderId = 0;
+      globalState.state = States.SELLING;
+
+      // Directly call performSell - no need to call reqIds() every time
+      performSell(ib, globalState);
     }
   } else if (
     isSellOrder &&

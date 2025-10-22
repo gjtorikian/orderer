@@ -9,7 +9,6 @@ export function round(value: number, decimals: number): number {
 }
 
 export function performBuy(
-  orderId: number,
   ib: any,
   globalState: GlobalState,
 ): void {
@@ -22,6 +21,9 @@ export function performBuy(
   globalState.currentTrade.symbol = stock;
   globalState.currentTrade.price = price;
   globalState.currentTrade.quantity = quantity;
+
+  // Use and increment the next order ID
+  const orderId = globalState.nextOrderId++;
 
   log(`Placing buy #${orderId} of ${stock}: ${quantity} @ ${price}`);
 
@@ -59,11 +61,6 @@ export function performBuy(
     7500,
     orderId,
   );
-
-  log(
-    `Placing buy #${globalState.lastOrderId} of ${stock}: ${quantity} @ ${price}`,
-  );
-  ib.placeOrder(orderId, contract, order);
 }
 
 export function isCancelled(status: string): boolean {
@@ -71,7 +68,6 @@ export function isCancelled(status: string): boolean {
 }
 
 export function performSell(
-  orderId: number,
   ib: any,
   globalState: GlobalState,
 ): void {
@@ -104,15 +100,19 @@ export function performSell(
     secType: SecType.STK,
   };
 
+  // Use and increment the next order ID for both orders
+  const profitOrderId = globalState.nextOrderId++;
+  const stopLossOrderId = globalState.nextOrderId++;
+
   // Create OCA group identifier
-  const ocaGroup: string = `OCA_${orderId}_${crypto.randomBytes(6).toString('hex')}`;
+  const ocaGroup: string = `OCA_${profitOrderId}_${crypto.randomBytes(6).toString('hex')}`;
 
   // Order 1: Profit Target (Limit Order)
   const profitOrder: Order = {
     orderType: OrderType.LMT,
     action: OrderAction.SELL,
     lmtPrice: profitPrice,
-    orderId,
+    orderId: profitOrderId,
     totalQuantity: quantity,
     account: IBKR_ACCOUNT_ID,
     tif: TimeInForce.GTC,
@@ -127,7 +127,7 @@ export function performSell(
     orderType: OrderType.STP,  // Stop order
     action: OrderAction.SELL,
     auxPrice: stopLossPrice,  // Stop trigger price
-    orderId: orderId + 1,
+    orderId: stopLossOrderId,
     totalQuantity: quantity,
     account: IBKR_ACCOUNT_ID,
     tif: TimeInForce.GTC,
@@ -138,14 +138,14 @@ export function performSell(
   };
 
   log(`Placing OCA sell orders for ${stock}: ${quantity} shares`);
-  log(`  Profit target #${orderId}: LIMIT @ ${profitPrice}`);
-  log(`  Stop loss #${orderId + 1}: STOP @ ${stopLossPrice}`);
+  log(`  Profit target #${profitOrderId}: LIMIT @ ${profitPrice}`);
+  log(`  Stop loss #${stopLossOrderId}: STOP @ ${stopLossPrice}`);
 
   // Place both orders
-  ib.placeOrder(orderId, contract, profitOrder);
-  ib.placeOrder(orderId + 1, contract, stopLossOrder);
+  ib.placeOrder(profitOrderId, contract, profitOrder);
+  ib.placeOrder(stopLossOrderId, contract, stopLossOrder);
 
   // Track both order IDs
-  globalState.lastOrderId = orderId;
-  globalState.stopLossOrderId = orderId + 1;
+  globalState.lastOrderId = profitOrderId;
+  globalState.stopLossOrderId = stopLossOrderId;
 }

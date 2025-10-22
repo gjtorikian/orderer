@@ -29,5 +29,6 @@ export interface GlobalState {
   positionsCount: number;
   lastOrderId: number;
   stopLossOrderId: number;
+  nextOrderId: number;
   winTimes: number;
 }

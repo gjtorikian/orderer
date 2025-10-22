@@ -9,14 +9,17 @@ export function handleNextValidId(
 ): void {
   log(`Next order Id ${orderId} in state ${globalState.state}`);
 
+  // Store the next valid order ID
+  globalState.nextOrderId = orderId;
+
   if (globalState.state == States.BUYING) {
-    performBuy(orderId, ib, globalState);
+    performBuy(ib, globalState);
   } else if (globalState.state == States.READY_TO_SELL) {
     log("Entering SELLING state");
     globalState.lastOrderId = 0;
     globalState.stopLossOrderId = 0;
     globalState.state = States.SELLING;
-    performSell(orderId, ib, globalState);
+    performSell(ib, globalState);
   } else {
     log(`State is ${globalState.state}`);
   }
