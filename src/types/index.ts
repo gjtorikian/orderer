@@ -31,4 +31,6 @@ export interface GlobalState {
   stopLossOrderId: number;
   nextOrderId: number;
   winTimes: number;
+  maxSpend: number;
+  ready: boolean;
 }

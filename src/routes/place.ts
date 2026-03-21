@@ -13,6 +13,10 @@ export function createPlaceRoute(
     res: express.Response,
   ): Promise<void | express.Response> => {
     try {
+      if (!globalState.ready) {
+        return res.status(503).send("Bot is not ready yet (waiting for account data)");
+      }
+
       const body = req.body;
       globalState.message = body.message;
 

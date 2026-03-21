@@ -9,7 +9,13 @@ export const accountSid: string = process.env.TWILIO_ACCOUNT_SID!;
 export const authToken: string = process.env.TWILIO_AUTH_TOKEN!;
 
 export const port: number = 5592;
-export const MaxSpend: number = parseInt(process.env.MAX_SPEND || "100000", 10);
+export const MAX_SPEND_RAW: string = process.env.MAX_SPEND || "100000";
+export const UseAllCapital: boolean = MAX_SPEND_RAW.toUpperCase() === "ALL";
+if (!UseAllCapital && isNaN(parseInt(MAX_SPEND_RAW, 10))) {
+  throw new Error(`Invalid MAX_SPEND value: "${MAX_SPEND_RAW}". Must be a number or "ALL".`);
+}
+export const MaxSpendFixed: number = UseAllCapital ? 0 : parseInt(MAX_SPEND_RAW, 10);
+export const MaxSpendMultiplier: number = parseFloat(process.env.MAX_SPEND_MULTIPLIER || "1");
 export const WinPercentage: number = 1 + parseFloat(process.env.WIN_PERCENTAGE || "1") / 100;
 export const LossPercentage: number = 1 - parseFloat(process.env.LOSS_PERCENTAGE || "2") / 100;
 export const WinCounterMax: number = parseInt(process.env.WIN_COUNTER_MAX || "2", 10);

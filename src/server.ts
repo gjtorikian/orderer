@@ -4,7 +4,7 @@ import express from "express";
 import * as http from "http";
 import * as path from "path";
 
-import { IB_CONFIG, port, TWILIO_CONFIG } from "./config/constants";
+import { IB_CONFIG, port, TWILIO_CONFIG, UseAllCapital, MaxSpendFixed, MaxSpendMultiplier, IBKR_ACCOUNT_ID } from "./config/constants";
 import { handleError } from "./events/error";
 import { handleNextValidId } from "./events/nextValidId";
 import { handleOpenOrder } from "./events/openOrder";
@@ -51,6 +51,8 @@ const globalState: GlobalState = {
   stopLossOrderId: 0,
   nextOrderId: 0,
   winTimes: 0,
+  maxSpend: UseAllCapital ? 0 : MaxSpendFixed * MaxSpendMultiplier,
+  ready: !UseAllCapital,
 };
 
 app.get("/", createIndexRoute(ib));
@@ -60,6 +62,30 @@ app.post("/message", createMessageRoute());
 ib.connect();
 ib.reqGlobalCancel();
 ib.reqIds();
+
+const ACCOUNT_SUMMARY_REQ_ID = 9001;
+
+if (UseAllCapital) {
+  ib.on(
+    EventName.accountSummary,
+    (reqId: number, account: string, tag: string, value: string, _currency: string): void => {
+      if (reqId === ACCOUNT_SUMMARY_REQ_ID && account === IBKR_ACCOUNT_ID && tag === "NetLiquidation") {
+        const netLiq = parseFloat(value);
+        globalState.maxSpend = netLiq * MaxSpendMultiplier;
+        log(`Account ${account} NetLiquidation: ${netLiq}, maxSpend set to ${globalState.maxSpend} (multiplier: ${MaxSpendMultiplier})`);
+      }
+    },
+  );
+  ib.on(EventName.accountSummaryEnd, (reqId: number): void => {
+    if (reqId === ACCOUNT_SUMMARY_REQ_ID) {
+      ib.cancelAccountSummary(ACCOUNT_SUMMARY_REQ_ID);
+      globalState.ready = true;
+      log(`Account summary received. Bot is ready. maxSpend = ${globalState.maxSpend}`);
+    }
+  });
+} else {
+  log(`Fixed maxSpend = ${globalState.maxSpend}`);
+}
 
 ib.on(EventName.error, (err: Error, code: ErrorCode, reqId: number) => {
   handleError(err, code, reqId);
@@ -84,6 +110,13 @@ ib.on(EventName.error, (err: Error, code: ErrorCode, reqId: number) => {
 
 ib.on(EventName.nextValidId, (orderId: number): void => {
   handleNextValidId(globalState, ib, orderId);
+});
+
+ib.on(EventName.connected, (): void => {
+  if (UseAllCapital) {
+    ib.reqAccountSummary(ACCOUNT_SUMMARY_REQ_ID, "All", "NetLiquidation");
+    log("UseAllCapital mode: requesting account summary...");
+  }
 });
 
 ib.on(

@@ -1,5 +1,5 @@
 import { Contract, Order, OrderAction, OrderType, SecType, TimeInForce } from "@stoqey/ib";
-import { MaxSpend, WinPercentage, LossPercentage, IBKR_ACCOUNT_ID, TRADING_MODE, FixedProfitAmount, FixedLossAmount } from "../config/constants";
+import { WinPercentage, LossPercentage, IBKR_ACCOUNT_ID, TRADING_MODE, FixedProfitAmount, FixedLossAmount } from "../config/constants";
 import { type GlobalState, States, TradingMode } from "../types";
 import { log } from "./logger";
 import crypto from 'node:crypto';
@@ -15,7 +15,7 @@ export function performBuy(
   const stock: string = globalState.sequence[1];
   const price: number = parseFloat(globalState.sequence[2]);
 
-  let quantity: number = MaxSpend / price;
+  let quantity: number = globalState.maxSpend / price;
   quantity = Math.floor(quantity / 10) * 10;
 
   globalState.currentTrade.symbol = stock;
