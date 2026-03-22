@@ -69,10 +69,13 @@ if (UseAllCapital) {
   ib.on(
     EventName.accountSummary,
     (reqId: number, account: string, tag: string, value: string, _currency: string): void => {
-      if (reqId === ACCOUNT_SUMMARY_REQ_ID && account === IBKR_ACCOUNT_ID && tag === "NetLiquidation") {
-        const netLiq = parseFloat(value);
-        globalState.maxSpend = netLiq * MaxSpendMultiplier;
-        log(`Account ${account} NetLiquidation: ${netLiq}, maxSpend set to ${globalState.maxSpend} (multiplier: ${MaxSpendMultiplier})`);
+      if (reqId !== ACCOUNT_SUMMARY_REQ_ID || account !== IBKR_ACCOUNT_ID) return;
+      if (tag === "TotalCashValue") {
+        const totalCash = parseFloat(value);
+        globalState.maxSpend = totalCash * MaxSpendMultiplier;
+        log(`Account ${account} TotalCashValue: ${totalCash}, maxSpend set to ${globalState.maxSpend} (multiplier: ${MaxSpendMultiplier})`);
+      } else if (tag === "BuyingPower") {
+        log(`Account ${account} BuyingPower: ${value}`);
       }
     },
   );
@@ -114,7 +117,7 @@ ib.on(EventName.nextValidId, (orderId: number): void => {
 
 ib.on(EventName.connected, (): void => {
   if (UseAllCapital) {
-    ib.reqAccountSummary(ACCOUNT_SUMMARY_REQ_ID, "All", "NetLiquidation");
+    ib.reqAccountSummary(ACCOUNT_SUMMARY_REQ_ID, "All", "TotalCashValue,BuyingPower");
     log("UseAllCapital mode: requesting account summary...");
   }
 });
