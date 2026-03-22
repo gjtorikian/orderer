@@ -29,6 +29,7 @@ export interface GlobalState {
   positionsCount: number;
   lastOrderId: number;
   stopLossOrderId: number;
+  profitTargetOrderId: number;
   nextOrderId: number;
   winTimes: number;
   maxSpend: number;

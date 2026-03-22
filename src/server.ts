@@ -49,6 +49,7 @@ const globalState: GlobalState = {
   positionsCount: 0,
   lastOrderId: 0,
   stopLossOrderId: 0,
+  profitTargetOrderId: 0,
   nextOrderId: 0,
   winTimes: 0,
   maxSpend: UseAllCapital ? 0 : MaxSpendFixed * MaxSpendMultiplier,

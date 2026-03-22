@@ -146,6 +146,6 @@ export function performSell(
   ib.placeOrder(stopLossOrderId, contract, stopLossOrder);
 
   // Track both order IDs
-  globalState.lastOrderId = profitOrderId;
+  globalState.profitTargetOrderId = profitOrderId;
   globalState.stopLossOrderId = stopLossOrderId;
 }

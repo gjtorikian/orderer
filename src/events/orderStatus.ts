@@ -16,10 +16,11 @@ export async function handleOrderStatus(
 ): Promise<void> {
   const unfulfilledCancelled: boolean =
     isCancelled(status) && remaining != 0 && avgFillPrice > 0;
+  const fullyCancelled: boolean = isCancelled(status) && filled == 0;
 
   // Check if this is either a buy order or one of the sell orders (profit target or stop loss)
   const isBuyOrder: boolean = globalState.lastOrderId == orderId;
-  const isProfitTargetOrder: boolean = globalState.lastOrderId == orderId;
+  const isProfitTargetOrder: boolean = globalState.profitTargetOrderId == orderId;
   const isStopLossOrder: boolean = globalState.stopLossOrderId == orderId;
   const isSellOrder: boolean = isProfitTargetOrder || isStopLossOrder;
 
@@ -46,6 +47,7 @@ export async function handleOrderStatus(
       log("Entering SELLING state");
       globalState.lastOrderId = 0;
       globalState.stopLossOrderId = 0;
+      globalState.profitTargetOrderId = 0;
       globalState.state = States.SELLING;
 
       // Directly call performSell - no need to call reqIds() every time
@@ -54,7 +56,7 @@ export async function handleOrderStatus(
   } else if (
     isSellOrder &&
     globalState.state == States.SELLING &&
-    (unfulfilledCancelled || remaining == 0)
+    (unfulfilledCancelled || remaining == 0 || fullyCancelled)
   ) {
     globalState.notifiedOfShort = false;
     globalState.state = States.READY_TO_BUY;

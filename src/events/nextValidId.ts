@@ -18,6 +18,7 @@ export function handleNextValidId(
     log("Entering SELLING state");
     globalState.lastOrderId = 0;
     globalState.stopLossOrderId = 0;
+    globalState.profitTargetOrderId = 0;
     globalState.state = States.SELLING;
     performSell(ib, globalState);
   } else {
