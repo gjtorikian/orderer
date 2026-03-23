@@ -56,7 +56,7 @@ export async function handleOrderStatus(
   } else if (
     isSellOrder &&
     globalState.state == States.SELLING &&
-    (unfulfilledCancelled || remaining == 0 || fullyCancelled)
+    (unfulfilledCancelled || remaining == 0)
   ) {
     globalState.notifiedOfShort = false;
     globalState.state = States.READY_TO_BUY;
