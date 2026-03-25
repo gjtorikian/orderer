@@ -53,7 +53,7 @@ const globalState: GlobalState = {
   nextOrderId: 0,
   winTimes: 0,
   maxSpend: UseAllCapital ? 0 : MaxSpendFixed * MaxSpendMultiplier,
-  ready: !UseAllCapital,
+  ready: false,
 };
 
 app.get("/", createIndexRoute(ib));
@@ -66,30 +66,37 @@ ib.reqIds();
 
 const ACCOUNT_SUMMARY_REQ_ID = 9001;
 
-if (UseAllCapital) {
-  ib.on(
-    EventName.accountSummary,
-    (reqId: number, account: string, tag: string, value: string, _currency: string): void => {
-      if (reqId !== ACCOUNT_SUMMARY_REQ_ID || account !== IBKR_ACCOUNT_ID) return;
-      if (tag === "TotalCashValue") {
+let accountBuyingPower = 0;
+
+ib.on(
+  EventName.accountSummary,
+  (reqId: number, account: string, tag: string, value: string, _currency: string): void => {
+    if (reqId !== ACCOUNT_SUMMARY_REQ_ID || account !== IBKR_ACCOUNT_ID) return;
+    if (tag === "TotalCashValue") {
+      if (UseAllCapital) {
         const totalCash = parseFloat(value);
         globalState.maxSpend = totalCash * MaxSpendMultiplier;
         log(`Account ${account} TotalCashValue: ${totalCash}, maxSpend set to ${globalState.maxSpend} (multiplier: ${MaxSpendMultiplier})`);
-      } else if (tag === "BuyingPower") {
-        log(`Account ${account} BuyingPower: ${value}`);
+      } else {
+        log(`Account ${account} TotalCashValue: ${value}`);
       }
-    },
-  );
-  ib.on(EventName.accountSummaryEnd, (reqId: number): void => {
-    if (reqId === ACCOUNT_SUMMARY_REQ_ID) {
-      ib.cancelAccountSummary(ACCOUNT_SUMMARY_REQ_ID);
-      globalState.ready = true;
-      log(`Account summary received. Bot is ready. maxSpend = ${globalState.maxSpend}`);
+    } else if (tag === "BuyingPower") {
+      accountBuyingPower = parseFloat(value);
+      log(`Account ${account} BuyingPower: ${value}`);
     }
-  });
-} else {
-  log(`Fixed maxSpend = ${globalState.maxSpend}`);
-}
+  },
+);
+ib.on(EventName.accountSummaryEnd, (reqId: number): void => {
+  if (reqId === ACCOUNT_SUMMARY_REQ_ID) {
+    ib.cancelAccountSummary(ACCOUNT_SUMMARY_REQ_ID);
+    if (accountBuyingPower > 0 && globalState.maxSpend > accountBuyingPower) {
+      log(`maxSpend ${globalState.maxSpend} exceeds BuyingPower ${accountBuyingPower}, capping to ${accountBuyingPower}`);
+      globalState.maxSpend = accountBuyingPower;
+    }
+    globalState.ready = true;
+    log(`Account summary received. Bot is ready. maxSpend = ${globalState.maxSpend}`);
+  }
+});
 
 ib.on(EventName.error, (err: Error, code: ErrorCode, reqId: number) => {
   handleError(err, code, reqId);
@@ -117,10 +124,8 @@ ib.on(EventName.nextValidId, (orderId: number): void => {
 });
 
 ib.on(EventName.connected, (): void => {
-  if (UseAllCapital) {
-    ib.reqAccountSummary(ACCOUNT_SUMMARY_REQ_ID, "All", "TotalCashValue,BuyingPower");
-    log("UseAllCapital mode: requesting account summary...");
-  }
+  ib.reqAccountSummary(ACCOUNT_SUMMARY_REQ_ID, "All", "TotalCashValue,BuyingPower");
+  log("Requesting account summary...");
 });
 
 ib.on(
