@@ -32,6 +32,7 @@ export async function handleOpenOrderEnd(
 
     return sendResponse(globalState.latestOrderRes, 204, eodMsg);
   } else if (globalState.state === States.READY_TO_BUY) {
+    globalState.positionsCount = 0;
     ib.once("positionEnd", (): void | express.Response => {
       if (globalState.positionsCount > 1) {
         const note: string = `Note: ${globalState.positionsCount} positions already exist`;
