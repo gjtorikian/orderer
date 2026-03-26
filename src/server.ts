@@ -67,6 +67,8 @@ ib.reqIds();
 const ACCOUNT_SUMMARY_REQ_ID = 9001;
 
 let accountBuyingPower = 0;
+let accountRegTEquity = 0; // PreviousDayEquityWithLoanValue
+let accountInitMarginReq = 0; // Current initial margin for existing positions
 
 ib.on(
   EventName.accountSummary,
@@ -83,6 +85,12 @@ ib.on(
     } else if (tag === "BuyingPower") {
       accountBuyingPower = parseFloat(value);
       log(`Account ${account} BuyingPower: ${value}`);
+    } else if (tag === "RegTEquity") {
+      accountRegTEquity = parseFloat(value);
+      log(`Account ${account} RegTEquity (PrevDayELV): ${value}`);
+    } else if (tag === "InitMarginReq") {
+      accountInitMarginReq = parseFloat(value);
+      log(`Account ${account} InitMarginReq: ${value}`);
     }
   },
 );
@@ -92,6 +100,17 @@ ib.on(EventName.accountSummaryEnd, (reqId: number): void => {
     if (accountBuyingPower > 0 && globalState.maxSpend > accountBuyingPower) {
       log(`maxSpend ${globalState.maxSpend} exceeds BuyingPower ${accountBuyingPower}, capping to ${accountBuyingPower}`);
       globalState.maxSpend = accountBuyingPower;
+    }
+    // Cap based on available margin: RegTEquity (PreviousDayELV) minus existing margin usage
+    // IB rejects orders when PreviousDayELV < total InitMarginReq (existing + new)
+    // New order margin at Reg-T 50% = orderValue * 0.5, so max orderValue = availableMargin * 2
+    if (accountRegTEquity > 0) {
+      const availableMargin = Math.max(0, accountRegTEquity - accountInitMarginReq);
+      const maxFromMargin = availableMargin * 2;
+      if (globalState.maxSpend > maxFromMargin) {
+        log(`maxSpend ${globalState.maxSpend} exceeds available margin capacity ${maxFromMargin} (RegTEquity: ${accountRegTEquity}, InitMarginReq: ${accountInitMarginReq}), capping`);
+        globalState.maxSpend = maxFromMargin;
+      }
     }
     globalState.ready = true;
     log(`Account summary received. Bot is ready. maxSpend = ${globalState.maxSpend}`);
@@ -124,7 +143,7 @@ ib.on(EventName.nextValidId, (orderId: number): void => {
 });
 
 ib.on(EventName.connected, (): void => {
-  ib.reqAccountSummary(ACCOUNT_SUMMARY_REQ_ID, "All", "TotalCashValue,BuyingPower");
+  ib.reqAccountSummary(ACCOUNT_SUMMARY_REQ_ID, "All", "TotalCashValue,BuyingPower,RegTEquity,InitMarginReq");
   log("Requesting account summary...");
 });
 
