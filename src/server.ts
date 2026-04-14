@@ -54,6 +54,8 @@ const globalState: GlobalState = {
   winTimes: 0,
   maxSpend: UseAllCapital ? 0 : MaxSpendFixed * MaxSpendMultiplier,
   ready: false,
+  monitorPrice: 0,
+  mktDataReqId: 0,
 };
 
 app.get("/", createIndexRoute(ib));
@@ -180,6 +182,15 @@ ib.on(
 
 ib.on(EventName.openOrderEnd, async (): Promise<void | express.Response> => {
   await handleOpenOrderEnd(globalState, ib);
+});
+
+// Market data ticks for buy order monitoring
+// TickType 4 = LAST (last traded price)
+const TICK_TYPE_LAST = 4;
+ib.on(EventName.tickPrice, (reqId: number, field: number, value: number): void => {
+  if (reqId === globalState.mktDataReqId && field === TICK_TYPE_LAST && value > 0) {
+    globalState.monitorPrice = value;
+  }
 });
 
 server.listen(port, (): void => {

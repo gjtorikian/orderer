@@ -34,4 +34,8 @@ export interface GlobalState {
   winTimes: number;
   maxSpend: number;
   ready: boolean;
+  /** Latest market price from tick data, used by buy order monitor */
+  monitorPrice: number;
+  /** reqId for the active market data subscription, 0 if none */
+  mktDataReqId: number;
 }

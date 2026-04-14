@@ -8,6 +8,21 @@ export function round(value: number, decimals: number): number {
   return Number(Math.round(Number(value + "e" + decimals)) + "e-" + decimals);
 }
 
+// Market data reqId for buy order monitoring (fixed, only one active at a time)
+const MKT_DATA_REQ_ID = 8001;
+
+// Price-based cancel thresholds (from backtest analysis):
+//   At 1 min: down >0.2% from entry → cancel (WR drops to ~60%, below breakeven)
+//   At 1 min: up >0.5% and unfilled → cancel (stock left without us)
+//   At 3 min: still flat ±0.2% → keep waiting (73% WR)
+//   At 3 min: down at all → cancel
+//   At 5 min: hard cancel backstop
+const CHECK_1_MS = 60_000;  // 1 minute
+const CHECK_2_MS = 180_000; // 3 minutes
+const HARD_CANCEL_MS = 300_000; // 5 minute backstop
+const DOWN_CANCEL_PCT = -0.002;  // -0.2%
+const UP_MISSED_PCT = 0.005;     // +0.5%
+
 export function performBuy(
   ib: any,
   globalState: GlobalState,
@@ -48,19 +63,117 @@ export function performBuy(
   ib.placeOrder(orderId, contract, order);
   globalState.lastOrderId = orderId;
 
-  setTimeout(
-    (orderId: number): void => {
-      if (!globalState.latestOrderFilled) {
-        globalState.latestOrderRes = null;
-        log(`Cancelling order #${orderId}`);
-        ib.cancelOrder(orderId);
-        globalState.state = States.READY_TO_BUY;
-      }
-      globalState.latestOrderFilled = false;
-    },
-    7500,
-    orderId,
-  );
+  // Start market data subscription to monitor price
+  globalState.monitorPrice = 0;
+  globalState.mktDataReqId = MKT_DATA_REQ_ID;
+  ib.reqMktData(MKT_DATA_REQ_ID, contract, "", false, false);
+
+  monitorBuyOrder(ib, globalState, orderId, price, stock);
+}
+
+export function stopBuyMonitor(ib: any, globalState: GlobalState): void {
+  if (globalState.mktDataReqId) {
+    ib.cancelMktData(globalState.mktDataReqId);
+    globalState.mktDataReqId = 0;
+    globalState.monitorPrice = 0;
+  }
+}
+
+function cancelBuyOrder(ib: any, globalState: GlobalState, orderId: number, reason: string): void {
+  stopBuyMonitor(ib, globalState);
+  globalState.latestOrderRes = null;
+  log(`Cancelling order #${orderId}: ${reason}`);
+  ib.cancelOrder(orderId);
+  globalState.state = States.READY_TO_BUY;
+  globalState.latestOrderFilled = false;
+}
+
+function monitorBuyOrder(
+  ib: any,
+  globalState: GlobalState,
+  orderId: number,
+  entryPrice: number,
+  stock: string,
+): void {
+  // Check 1: at 1 minute, evaluate price position
+  setTimeout((): void => {
+    if (globalState.latestOrderFilled) {
+      stopBuyMonitor(ib, globalState);
+      return;
+    }
+
+    const currentPrice = globalState.monitorPrice;
+    if (currentPrice <= 0) {
+      // No market data received — fall back to hard cancel at 5 min
+      log(`Monitor ${stock}: no market data at 1m, waiting...`);
+      return;
+    }
+
+    const pctMove = (currentPrice - entryPrice) / entryPrice;
+    log(`Monitor ${stock} at 1m: entry=${entryPrice} current=${currentPrice} move=${(pctMove * 100).toFixed(2)}%`);
+
+    if (pctMove < DOWN_CANCEL_PCT) {
+      // Stock is down >0.2% — 60% WR or worse, below breakeven
+      cancelBuyOrder(ib, globalState, orderId, `down ${(pctMove * 100).toFixed(2)}% at 1m`);
+      clearTimeout(timer2);
+      clearTimeout(hardTimer);
+      return;
+    }
+
+    if (pctMove > UP_MISSED_PCT) {
+      // Stock ran away — 96% WR but we can't catch it
+      cancelBuyOrder(ib, globalState, orderId, `up ${(pctMove * 100).toFixed(2)}% at 1m, missed move`);
+      clearTimeout(timer2);
+      clearTimeout(hardTimer);
+      return;
+    }
+
+    // Flat (±0.2% to +0.5%) — keep waiting, check again at 3 min
+    log(`Monitor ${stock}: flat at 1m (${(pctMove * 100).toFixed(2)}%), holding order`);
+  }, CHECK_1_MS);
+
+  // Check 2: at 3 minutes, re-evaluate
+  const timer2 = setTimeout((): void => {
+    if (globalState.latestOrderFilled) {
+      stopBuyMonitor(ib, globalState);
+      return;
+    }
+
+    const currentPrice = globalState.monitorPrice;
+    if (currentPrice <= 0) {
+      log(`Monitor ${stock}: no market data at 3m, waiting for hard cancel...`);
+      return;
+    }
+
+    const pctMove = (currentPrice - entryPrice) / entryPrice;
+    log(`Monitor ${stock} at 3m: entry=${entryPrice} current=${currentPrice} move=${(pctMove * 100).toFixed(2)}%`);
+
+    if (pctMove < 0) {
+      // Any red at 3 min — cancel (down 0.2-0.5% at 3m = 45% WR)
+      cancelBuyOrder(ib, globalState, orderId, `down ${(pctMove * 100).toFixed(2)}% at 3m`);
+      clearTimeout(hardTimer);
+      return;
+    }
+
+    if (pctMove > UP_MISSED_PCT) {
+      // Still up and unfilled at 3 min — it's gone
+      cancelBuyOrder(ib, globalState, orderId, `up ${(pctMove * 100).toFixed(2)}% at 3m, missed move`);
+      clearTimeout(hardTimer);
+      return;
+    }
+
+    // Still flat/slightly up — the 73% WR zone. Let it ride to hard cancel.
+    log(`Monitor ${stock}: flat/up at 3m (${(pctMove * 100).toFixed(2)}%), holding to 5m`);
+  }, CHECK_2_MS);
+
+  // Hard backstop: cancel at 5 minutes no matter what
+  const hardTimer = setTimeout((): void => {
+    if (globalState.latestOrderFilled) {
+      stopBuyMonitor(ib, globalState);
+      return;
+    }
+    cancelBuyOrder(ib, globalState, orderId, "5m hard cancel");
+  }, HARD_CANCEL_MS);
 }
 
 export function isCancelled(status: string): boolean {
