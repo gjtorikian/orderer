@@ -1,6 +1,6 @@
 import { Contract, Order, OrderAction, OrderType, SecType, TimeInForce } from "@stoqey/ib";
 import { WinPercentage, LossPercentage, IBKR_ACCOUNT_ID, TRADING_MODE, FixedProfitAmount, FixedLossAmount, SlotProfitAmount, SlotLossAmount, MaxSlots } from "../config/constants";
-import { type GlobalState, type Slot, States, TradingMode } from "../types";
+import { type GlobalState, type Slot, type TradeDirection, States, TradingMode } from "../types";
 import { log } from "./logger";
 import crypto from 'node:crypto';
 
@@ -298,10 +298,11 @@ export function findSlotByMktDataReqId(globalState: GlobalState, reqId: number):
   return undefined;
 }
 
-export function performSlotBuy(
+export function performSlotEntry(
   ib: any,
   globalState: GlobalState,
   slotId: number,
+  direction: TradeDirection,
 ): void {
   const stock: string = globalState.sequence[1];
   const price: number = parseFloat(globalState.sequence[2]);
@@ -315,6 +316,7 @@ export function performSlotBuy(
   const slot: Slot = {
     id: slotId,
     state: States.BUYING,
+    direction,
     currentTrade: { symbol: stock, price, quantity },
     lastOrderId: orderId,
     profitTargetOrderId: 0,
@@ -326,7 +328,8 @@ export function performSlotBuy(
 
   globalState.slots.set(slotId, slot);
 
-  log(`[Slot ${slotId}] Placing buy #${orderId} of ${stock}: ${quantity} @ ${price}`);
+  const action = direction === "long" ? OrderAction.BUY : OrderAction.SELL;
+  log(`[Slot ${slotId}] Placing ${direction} entry #${orderId} of ${stock}: ${quantity} @ ${price}`);
 
   const contract: Contract = {
     symbol: stock,
@@ -337,7 +340,7 @@ export function performSlotBuy(
 
   const order: Order = {
     orderType: OrderType.LMT,
-    action: OrderAction.BUY,
+    action,
     lmtPrice: price,
     orderId,
     totalQuantity: quantity,
@@ -444,11 +447,25 @@ export function performSlotSell(
 ): void {
   const stock: string = slot.currentTrade.symbol;
   const quantity: number = slot.currentTrade.quantity;
-  const buyPrice: number = slot.currentTrade.price;
+  const entryPrice: number = slot.currentTrade.price;
+  const isShort = slot.direction === "short";
 
   // SLOTS mode uses fixed dollar amounts for profit/loss targets
-  const profitPrice: number = round(buyPrice + (SlotProfitAmount / quantity), 2);
-  const stopLossPrice: number = round(buyPrice - (SlotLossAmount / quantity), 2);
+  // Long: profit = sell higher, stop = sell lower
+  // Short: profit = cover lower, stop = cover higher
+  let profitPrice: number;
+  let stopLossPrice: number;
+
+  if (isShort) {
+    profitPrice = round(entryPrice - (SlotProfitAmount / quantity), 2);
+    stopLossPrice = round(entryPrice + (SlotLossAmount / quantity), 2);
+  } else {
+    profitPrice = round(entryPrice + (SlotProfitAmount / quantity), 2);
+    stopLossPrice = round(entryPrice - (SlotLossAmount / quantity), 2);
+  }
+
+  // Exit action is opposite of entry
+  const exitAction = isShort ? OrderAction.BUY : OrderAction.SELL;
 
   const contract: Contract = {
     symbol: stock,
@@ -464,7 +481,7 @@ export function performSlotSell(
 
   const profitOrder: Order = {
     orderType: OrderType.LMT,
-    action: OrderAction.SELL,
+    action: exitAction,
     lmtPrice: profitPrice,
     orderId: profitOrderId,
     totalQuantity: quantity,
@@ -478,7 +495,7 @@ export function performSlotSell(
 
   const stopLossOrder: Order = {
     orderType: OrderType.STP,
-    action: OrderAction.SELL,
+    action: exitAction,
     auxPrice: stopLossPrice,
     orderId: stopLossOrderId,
     totalQuantity: quantity,
@@ -490,7 +507,8 @@ export function performSlotSell(
     ocaType: 1,
   };
 
-  log(`[Slot ${slot.id}] Placing OCA sell orders for ${stock}: ${quantity} shares`);
+  const dirLabel = isShort ? "cover" : "sell";
+  log(`[Slot ${slot.id}] Placing OCA ${dirLabel} orders for ${stock}: ${quantity} shares (${slot.direction})`);
   log(`[Slot ${slot.id}]   Profit target #${profitOrderId}: LIMIT @ ${profitPrice}`);
   log(`[Slot ${slot.id}]   Stop loss #${stopLossOrderId}: STOP @ ${stopLossPrice}`);
 

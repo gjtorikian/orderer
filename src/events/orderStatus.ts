@@ -2,6 +2,7 @@ import { TWILIO_CONFIG, WinCounterMax, TRADING_MODE, MaxSlots } from "../config/
 import { type GlobalState, States, TradingMode } from "../types";
 import { log } from "../utils/logger";
 import { isCancelled, performSell, stopBuyMonitor, findSlotByOrderId, performSlotSell } from "../utils/trading";
+import { updateRegime } from "../utils/regime";
 
 export async function handleOrderStatus(
   globalState: GlobalState,
@@ -142,9 +143,13 @@ async function handleSlotOrderStatus(
   } else if (isSellOrder && slot.state === States.SELLING && (unfulfilledCancelled || remaining == 0)) {
     const wasProfit = isProfitTargetOrder;
     const symbol = slot.currentTrade.symbol;
+    const direction = slot.direction;
 
     // Free the slot — position is closed, opens a spot for next bet
     globalState.slots.delete(slot.id);
+
+    // Update adaptive regime
+    updateRegime(globalState, wasProfit);
 
     setTimeout(async (): Promise<void> => {
       if (wasProfit) {
@@ -152,8 +157,10 @@ async function handleSlotOrderStatus(
       }
 
       const orderType: string = wasProfit ? "PROFIT" : "STOP LOSS";
+      const dirLabel = direction === "short" ? " (SHORT)" : "";
+      const regime = globalState.regime.hotMode ? " [HOT]" : "";
       const slotsActive = globalState.slots.size;
-      const text: string = `[Slot] ${orderType}: ${symbol} #${orderId} (active: ${slotsActive}/${MaxSlots})`;
+      const text: string = `[Slot] ${orderType}${dirLabel}${regime}: ${symbol} #${orderId} (active: ${slotsActive}/${MaxSlots}, day: ${globalState.regime.dailyWins}W/${globalState.regime.dailyLosses}L)`;
       log(text);
 
       if (MaxSlots <= 5 || globalState.winTimes % 5 === 0 || !wasProfit) {

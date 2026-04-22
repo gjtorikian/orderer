@@ -33,6 +33,8 @@ const twilio = require("twilio")(
 
 const ib = new IBApi(IB_CONFIG);
 
+const initialMaxSpend = UseAllCapital ? 0 : MaxSpendFixed * MaxSpendMultiplier;
+
 const globalState: GlobalState = {
   state: States.READY_TO_BUY,
   currentTrade: {
@@ -53,11 +55,22 @@ const globalState: GlobalState = {
   profitTargetOrderId: 0,
   nextOrderId: 0,
   winTimes: 0,
-  maxSpend: UseAllCapital ? 0 : MaxSpendFixed * MaxSpendMultiplier,
+  maxSpend: initialMaxSpend,
+  baseMaxSpend: initialMaxSpend,
   ready: false,
   monitorPrice: 0,
   mktDataReqId: 0,
   slots: new Map(),
+  regime: {
+    earlyWins: 0,
+    earlyLosses: 0,
+    todayResolved: 0,
+    hotMode: false,
+    currentDate: new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }),
+    dailyWins: 0,
+    dailyLosses: 0,
+  },
+  pendingMetrics: null,
 };
 
 app.get("/", createIndexRoute(ib));
@@ -82,6 +95,7 @@ ib.on(
       if (UseAllCapital) {
         const totalCash = parseFloat(value);
         globalState.maxSpend = totalCash * MaxSpendMultiplier;
+        globalState.baseMaxSpend = globalState.maxSpend;
         log(`Account ${account} TotalCashValue: ${totalCash}, maxSpend set to ${globalState.maxSpend} (multiplier: ${MaxSpendMultiplier})`);
       } else {
         log(`Account ${account} TotalCashValue: ${value}`);

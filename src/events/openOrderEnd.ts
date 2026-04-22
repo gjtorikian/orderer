@@ -2,7 +2,7 @@ import type * as express from "express";
 import { WinCounterMax, TRADING_MODE, MaxSlots } from "../config/constants";
 import { type GlobalState, States, TradingMode } from "../types";
 import { log } from "../utils/logger";
-import { performBuy, getAvailableSlotId, activeSlotCount, performSlotBuy } from "../utils/trading";
+import { performBuy, getAvailableSlotId, activeSlotCount, performSlotEntry } from "../utils/trading";
 
 export async function handleOpenOrderEnd(
   globalState: GlobalState,
@@ -84,10 +84,13 @@ function handleSlotsOpenOrderEnd(
     }
 
     globalState.sequence = globalState.message.split(" ");
-    performSlotBuy(ib, globalState, slotId);
+
+    // Determine direction from message prefix: "b" = long, "s" = short
+    const direction = globalState.message.startsWith("s ") ? "short" as const : "long" as const;
+    performSlotEntry(ib, globalState, slotId, direction);
 
     const active = usedSlots + 1;
-    return sendResponse(globalState.latestOrderRes!, 200, `Slot ${slotId} active (${active}/${MaxSlots})`);
+    return sendResponse(globalState.latestOrderRes!, 200, `Slot ${slotId} ${direction} (${active}/${MaxSlots})`);
   });
 
   ib.reqPositions();
