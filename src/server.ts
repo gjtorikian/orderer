@@ -4,7 +4,7 @@ import express from "express";
 import * as http from "http";
 import * as path from "path";
 
-import { IB_CONFIG, port, TWILIO_CONFIG, UseAllCapital, MaxSpendFixed, MaxSpendMultiplier, IBKR_ACCOUNT_ID } from "./config/constants";
+import { IB_CONFIG, port, TWILIO_CONFIG, UseAllCapital, MaxSpendFixed, MaxSpendMultiplier, IBKR_ACCOUNT_ID, TRADING_MODE } from "./config/constants";
 import { handleError } from "./events/error";
 import { handleNextValidId } from "./events/nextValidId";
 import { handleOpenOrder } from "./events/openOrder";
@@ -14,8 +14,9 @@ import { handlePosition } from "./events/position";
 import { createIndexRoute } from "./routes/index";
 import { createMessageRoute } from "./routes/message";
 import { createPlaceRoute } from "./routes/place";
-import { type GlobalState, States } from "./types";
+import { type GlobalState, States, TradingMode } from "./types";
 import { log } from "./utils/logger";
+import { findSlotByMktDataReqId } from "./utils/trading";
 import { IBApi, EventName, ErrorCode, Contract } from "@stoqey/ib";
 
 const app: express.Application = express();
@@ -56,6 +57,7 @@ const globalState: GlobalState = {
   ready: false,
   monitorPrice: 0,
   mktDataReqId: 0,
+  slots: new Map(),
 };
 
 app.get("/", createIndexRoute(ib));
@@ -188,8 +190,20 @@ ib.on(EventName.openOrderEnd, async (): Promise<void | express.Response> => {
 // TickType 4 = LAST (last traded price)
 const TICK_TYPE_LAST = 4;
 ib.on(EventName.tickPrice, (reqId: number, field: number, value: number): void => {
-  if (reqId === globalState.mktDataReqId && field === TICK_TYPE_LAST && value > 0) {
+  if (field !== TICK_TYPE_LAST || value <= 0) return;
+
+  // Route to single-trade monitor (PERCENTAGE/FIXED modes)
+  if (reqId === globalState.mktDataReqId) {
     globalState.monitorPrice = value;
+    return;
+  }
+
+  // Route to slot monitor (SLOTS mode)
+  if (TRADING_MODE === TradingMode.SLOTS) {
+    const slot = findSlotByMktDataReqId(globalState, reqId);
+    if (slot) {
+      slot.monitorPrice = value;
+    }
   }
 });
 

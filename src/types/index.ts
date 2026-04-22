@@ -8,12 +8,25 @@ export enum States {
 export enum TradingMode {
   PERCENTAGE = "PERCENTAGE",
   FIXED = "FIXED",
+  SLOTS = "SLOTS",
 }
 
 export interface CurrentTrade {
   price: number;
   quantity: number;
   symbol: string;
+}
+
+export interface Slot {
+  id: number;
+  state: States;
+  currentTrade: CurrentTrade;
+  lastOrderId: number;
+  profitTargetOrderId: number;
+  stopLossOrderId: number;
+  latestOrderFilled: boolean;
+  monitorPrice: number;
+  mktDataReqId: number;
 }
 
 export interface GlobalState {
@@ -38,4 +51,6 @@ export interface GlobalState {
   monitorPrice: number;
   /** reqId for the active market data subscription, 0 if none */
   mktDataReqId: number;
+  /** Active slots for SLOTS mode, keyed by slot id */
+  slots: Map<number, Slot>;
 }

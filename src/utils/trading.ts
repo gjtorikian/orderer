@@ -1,6 +1,6 @@
 import { Contract, Order, OrderAction, OrderType, SecType, TimeInForce } from "@stoqey/ib";
-import { WinPercentage, LossPercentage, IBKR_ACCOUNT_ID, TRADING_MODE, FixedProfitAmount, FixedLossAmount } from "../config/constants";
-import { type GlobalState, States, TradingMode } from "../types";
+import { WinPercentage, LossPercentage, IBKR_ACCOUNT_ID, TRADING_MODE, FixedProfitAmount, FixedLossAmount, SlotProfitAmount, SlotLossAmount, MaxSlots } from "../config/constants";
+import { type GlobalState, type Slot, States, TradingMode } from "../types";
 import { log } from "./logger";
 import crypto from 'node:crypto';
 
@@ -10,6 +10,8 @@ export function round(value: number, decimals: number): number {
 
 // Market data reqId for buy order monitoring (fixed, only one active at a time)
 const MKT_DATA_REQ_ID = 8001;
+// Base reqId for slot market data subscriptions (slot 0 = 8100, slot 1 = 8101, etc.)
+const SLOT_MKT_DATA_REQ_BASE = 8100;
 
 // Price-based cancel thresholds (from backtest analysis):
 //   At 1 min: down >0.2% from entry → cancel (WR drops to ~60%, below breakeven)
@@ -261,4 +263,241 @@ export function performSell(
   // Track both order IDs
   globalState.profitTargetOrderId = profitOrderId;
   globalState.stopLossOrderId = stopLossOrderId;
+}
+
+// --- SLOTS mode functions ---
+
+export function getAvailableSlotId(globalState: GlobalState): number | null {
+  for (let i = 0; i < MaxSlots; i++) {
+    if (!globalState.slots.has(i)) {
+      return i;
+    }
+  }
+  return null;
+}
+
+export function activeSlotCount(globalState: GlobalState): number {
+  return globalState.slots.size;
+}
+
+export function findSlotByOrderId(globalState: GlobalState, orderId: number): Slot | undefined {
+  for (const slot of globalState.slots.values()) {
+    if (slot.lastOrderId === orderId || slot.profitTargetOrderId === orderId || slot.stopLossOrderId === orderId) {
+      return slot;
+    }
+  }
+  return undefined;
+}
+
+export function findSlotByMktDataReqId(globalState: GlobalState, reqId: number): Slot | undefined {
+  for (const slot of globalState.slots.values()) {
+    if (slot.mktDataReqId === reqId) {
+      return slot;
+    }
+  }
+  return undefined;
+}
+
+export function performSlotBuy(
+  ib: any,
+  globalState: GlobalState,
+  slotId: number,
+): void {
+  const stock: string = globalState.sequence[1];
+  const price: number = parseFloat(globalState.sequence[2]);
+
+  let quantity: number = globalState.maxSpend / price;
+  quantity = Math.floor(quantity / 10) * 10;
+
+  const orderId = globalState.nextOrderId++;
+  const mktDataReqId = SLOT_MKT_DATA_REQ_BASE + slotId;
+
+  const slot: Slot = {
+    id: slotId,
+    state: States.BUYING,
+    currentTrade: { symbol: stock, price, quantity },
+    lastOrderId: orderId,
+    profitTargetOrderId: 0,
+    stopLossOrderId: 0,
+    latestOrderFilled: false,
+    monitorPrice: 0,
+    mktDataReqId,
+  };
+
+  globalState.slots.set(slotId, slot);
+
+  log(`[Slot ${slotId}] Placing buy #${orderId} of ${stock}: ${quantity} @ ${price}`);
+
+  const contract: Contract = {
+    symbol: stock,
+    exchange: "SMART",
+    currency: "USD",
+    secType: SecType.STK,
+  };
+
+  const order: Order = {
+    orderType: OrderType.LMT,
+    action: OrderAction.BUY,
+    lmtPrice: price,
+    orderId,
+    totalQuantity: quantity,
+    account: IBKR_ACCOUNT_ID,
+    tif: TimeInForce.GTC,
+    transmit: true,
+  };
+
+  ib.placeOrder(orderId, contract, order);
+
+  // Start market data subscription for this slot
+  ib.reqMktData(mktDataReqId, contract, "", false, false);
+
+  monitorSlotBuyOrder(ib, globalState, slot, price, stock);
+}
+
+function cancelSlotBuyOrder(ib: any, globalState: GlobalState, slot: Slot, reason: string): void {
+  if (slot.mktDataReqId) {
+    ib.cancelMktData(slot.mktDataReqId);
+    slot.mktDataReqId = 0;
+    slot.monitorPrice = 0;
+  }
+  log(`[Slot ${slot.id}] Cancelling order #${slot.lastOrderId}: ${reason}`);
+  ib.cancelOrder(slot.lastOrderId);
+  // Remove the slot — it's free again
+  globalState.slots.delete(slot.id);
+}
+
+function monitorSlotBuyOrder(
+  ib: any,
+  globalState: GlobalState,
+  slot: Slot,
+  entryPrice: number,
+  stock: string,
+): void {
+  const orderId = slot.lastOrderId;
+
+  setTimeout((): void => {
+    if (slot.latestOrderFilled || !globalState.slots.has(slot.id)) return;
+
+    const currentPrice = slot.monitorPrice;
+    if (currentPrice <= 0) {
+      log(`[Slot ${slot.id}] Monitor ${stock}: no market data at 1m, waiting...`);
+      return;
+    }
+
+    const pctMove = (currentPrice - entryPrice) / entryPrice;
+    log(`[Slot ${slot.id}] Monitor ${stock} at 1m: entry=${entryPrice} current=${currentPrice} move=${(pctMove * 100).toFixed(2)}%`);
+
+    if (pctMove < DOWN_CANCEL_PCT) {
+      cancelSlotBuyOrder(ib, globalState, slot, `down ${(pctMove * 100).toFixed(2)}% at 1m`);
+      clearTimeout(timer2);
+      clearTimeout(hardTimer);
+      return;
+    }
+
+    if (pctMove > UP_MISSED_PCT) {
+      cancelSlotBuyOrder(ib, globalState, slot, `up ${(pctMove * 100).toFixed(2)}% at 1m, missed move`);
+      clearTimeout(timer2);
+      clearTimeout(hardTimer);
+      return;
+    }
+
+    log(`[Slot ${slot.id}] Monitor ${stock}: flat at 1m (${(pctMove * 100).toFixed(2)}%), holding order`);
+  }, CHECK_1_MS);
+
+  const timer2 = setTimeout((): void => {
+    if (slot.latestOrderFilled || !globalState.slots.has(slot.id)) return;
+
+    const currentPrice = slot.monitorPrice;
+    if (currentPrice <= 0) {
+      log(`[Slot ${slot.id}] Monitor ${stock}: no market data at 3m, waiting for hard cancel...`);
+      return;
+    }
+
+    const pctMove = (currentPrice - entryPrice) / entryPrice;
+    log(`[Slot ${slot.id}] Monitor ${stock} at 3m: entry=${entryPrice} current=${currentPrice} move=${(pctMove * 100).toFixed(2)}%`);
+
+    if (pctMove < 0) {
+      cancelSlotBuyOrder(ib, globalState, slot, `down ${(pctMove * 100).toFixed(2)}% at 3m`);
+      clearTimeout(hardTimer);
+      return;
+    }
+
+    if (pctMove > UP_MISSED_PCT) {
+      cancelSlotBuyOrder(ib, globalState, slot, `up ${(pctMove * 100).toFixed(2)}% at 3m, missed move`);
+      clearTimeout(hardTimer);
+      return;
+    }
+
+    log(`[Slot ${slot.id}] Monitor ${stock}: flat/up at 3m (${(pctMove * 100).toFixed(2)}%), holding to 5m`);
+  }, CHECK_2_MS);
+
+  const hardTimer = setTimeout((): void => {
+    if (slot.latestOrderFilled || !globalState.slots.has(slot.id)) return;
+    cancelSlotBuyOrder(ib, globalState, slot, "5m hard cancel");
+  }, HARD_CANCEL_MS);
+}
+
+export function performSlotSell(
+  ib: any,
+  globalState: GlobalState,
+  slot: Slot,
+): void {
+  const stock: string = slot.currentTrade.symbol;
+  const quantity: number = slot.currentTrade.quantity;
+  const buyPrice: number = slot.currentTrade.price;
+
+  // SLOTS mode uses fixed dollar amounts for profit/loss targets
+  const profitPrice: number = round(buyPrice + (SlotProfitAmount / quantity), 2);
+  const stopLossPrice: number = round(buyPrice - (SlotLossAmount / quantity), 2);
+
+  const contract: Contract = {
+    symbol: stock,
+    exchange: "SMART",
+    currency: "USD",
+    secType: SecType.STK,
+  };
+
+  const profitOrderId = globalState.nextOrderId++;
+  const stopLossOrderId = globalState.nextOrderId++;
+
+  const ocaGroup: string = `OCA_${profitOrderId}_${crypto.randomBytes(6).toString('hex')}`;
+
+  const profitOrder: Order = {
+    orderType: OrderType.LMT,
+    action: OrderAction.SELL,
+    lmtPrice: profitPrice,
+    orderId: profitOrderId,
+    totalQuantity: quantity,
+    account: IBKR_ACCOUNT_ID,
+    tif: TimeInForce.GTC,
+    transmit: true,
+    outsideRth: true,
+    ocaGroup,
+    ocaType: 1,
+  };
+
+  const stopLossOrder: Order = {
+    orderType: OrderType.STP,
+    action: OrderAction.SELL,
+    auxPrice: stopLossPrice,
+    orderId: stopLossOrderId,
+    totalQuantity: quantity,
+    account: IBKR_ACCOUNT_ID,
+    tif: TimeInForce.GTC,
+    transmit: true,
+    outsideRth: true,
+    ocaGroup,
+    ocaType: 1,
+  };
+
+  log(`[Slot ${slot.id}] Placing OCA sell orders for ${stock}: ${quantity} shares`);
+  log(`[Slot ${slot.id}]   Profit target #${profitOrderId}: LIMIT @ ${profitPrice}`);
+  log(`[Slot ${slot.id}]   Stop loss #${stopLossOrderId}: STOP @ ${stopLossPrice}`);
+
+  ib.placeOrder(profitOrderId, contract, profitOrder);
+  ib.placeOrder(stopLossOrderId, contract, stopLossOrder);
+
+  slot.profitTargetOrderId = profitOrderId;
+  slot.stopLossOrderId = stopLossOrderId;
+  slot.state = States.SELLING;
 }

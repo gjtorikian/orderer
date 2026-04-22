@@ -20,6 +20,9 @@ export const WinCounterMax: number = parseInt(process.env.WIN_COUNTER_MAX || "2"
 export const TRADING_MODE: TradingMode = (process.env.TRADING_MODE as TradingMode) || TradingMode.PERCENTAGE;
 export const FixedProfitAmount: number = parseFloat(process.env.FIXED_PROFIT_AMOUNT || "100");
 export const FixedLossAmount: number = parseFloat(process.env.FIXED_LOSS_AMOUNT || "200");
+export const MaxSlots: number = parseInt(process.env.MAX_SLOTS || "3", 10);
+export const SlotProfitAmount: number = parseFloat(process.env.SLOT_PROFIT_AMOUNT || "100");
+export const SlotLossAmount: number = parseFloat(process.env.SLOT_LOSS_AMOUNT || "200");
 
 export const IB_CONFIG = {
   host: "127.0.0.1",
