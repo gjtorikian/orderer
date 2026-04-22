@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a stock trading bot that connects to Interactive Brokers (IBKR) via the `@stoqey/ib` API client. It runs an Express server (port 5592) that receives trade signals via HTTP POST and executes buy/sell orders through IBKR's TWS/Gateway.
 
+More information can be found in docs.
+
 ### Flow
 
 1. @/Users/gjtorikian/Developer/rcandy POSTs to `/place` with a message like `"b AAPL 150.00"` (password-authenticated via `Authorization` header)
