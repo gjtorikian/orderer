@@ -33,19 +33,19 @@ export interface Slot {
 }
 
 export interface RegimeState {
-  /** Consecutive wins at start of day (for warmup detection) */
-  earlyWins: number;
-  /** Consecutive losses at start of day */
-  earlyLosses: number;
-  /** Total resolved trades today (wins + losses) */
-  todayResolved: number;
+  /** Long wins during warmup period */
+  warmupLongWins: number;
+  /** Long losses during warmup period */
+  warmupLongLosses: number;
+  /** Long trades resolved during warmup (shorts don't count) */
+  warmupResolved: number;
   /** Whether hot mode is active for the rest of the day */
   hotMode: boolean;
   /** Date string (YYYY-MM-DD) to detect day rollover */
   currentDate: string;
-  /** Daily wins for tracking */
+  /** Daily wins (all directions) for tracking */
   dailyWins: number;
-  /** Daily losses for tracking */
+  /** Daily losses (all directions) for tracking */
   dailyLosses: number;
 }
 

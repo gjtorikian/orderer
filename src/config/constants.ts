@@ -24,10 +24,11 @@ export const MaxSlots: number = parseInt(process.env.MAX_SLOTS || "25", 10);
 export const SlotProfitAmount: number = parseFloat(process.env.SLOT_PROFIT_AMOUNT || "100");
 export const SlotLossAmount: number = parseFloat(process.env.SLOT_LOSS_AMOUNT || "200");
 
-// Adaptive regime: after WARMUP_TRADES consecutive wins, scale to HOT_MULTIPLIER
-export const WarmupTrades: number = parseInt(process.env.WARMUP_TRADES || "2", 10);
+// Adaptive regime: after WARMUP_TRADES resolved, if win rate >= HOT_THRESHOLD, scale to HOT_MULTIPLIER
+export const WarmupTrades: number = parseInt(process.env.WARMUP_TRADES || "5", 10);
+export const HotThreshold: number = parseFloat(process.env.HOT_THRESHOLD || "0.80");
 export const HotMultiplier: number = parseFloat(process.env.HOT_MULTIPLIER || "2.5");
-// Shutdown if first trades lose (cold regime threshold)
+// Shutdown if early losses reach this count
 export const ColdShutdownLosses: number = parseInt(process.env.COLD_SHUTDOWN_LOSSES || "2", 10);
 
 export const IB_CONFIG = {

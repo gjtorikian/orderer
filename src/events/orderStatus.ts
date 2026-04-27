@@ -148,8 +148,8 @@ async function handleSlotOrderStatus(
     // Free the slot — position is closed, opens a spot for next bet
     globalState.slots.delete(slot.id);
 
-    // Update adaptive regime
-    updateRegime(globalState, wasProfit);
+    // Update adaptive regime (only long results count toward warmup)
+    updateRegime(globalState, wasProfit, direction);
 
     setTimeout(async (): Promise<void> => {
       if (wasProfit) {

@@ -1,4 +1,4 @@
-import { WarmupTrades, HotMultiplier } from "../config/constants";
+import { WarmupTrades, HotThreshold, HotMultiplier } from "../config/constants";
 import type { GlobalState } from "../types";
 import { log } from "./logger";
 
@@ -13,9 +13,9 @@ export function checkRegimeDayRollover(globalState: GlobalState): void {
   if (globalState.regime.currentDate !== today) {
     log(`New trading day: ${today} (was ${globalState.regime.currentDate}). Resetting regime.`);
     globalState.regime = {
-      earlyWins: 0,
-      earlyLosses: 0,
-      todayResolved: 0,
+      warmupLongWins: 0,
+      warmupLongLosses: 0,
+      warmupResolved: 0,
       hotMode: false,
       currentDate: today,
       dailyWins: 0,
@@ -26,44 +26,45 @@ export function checkRegimeDayRollover(globalState: GlobalState): void {
   }
 }
 
-/** Called after each trade resolves. Updates regime and adjusts maxSpend. */
-export function updateRegime(globalState: GlobalState, wasWin: boolean): void {
-  globalState.regime.todayResolved++;
-
+/**
+ * Called after each trade resolves. Updates regime and adjusts maxSpend.
+ * Only LONG results count toward the warmup regime detection.
+ */
+export function updateRegime(globalState: GlobalState, wasWin: boolean, direction: "long" | "short"): void {
   if (wasWin) {
     globalState.regime.dailyWins++;
   } else {
     globalState.regime.dailyLosses++;
   }
 
-  // During warmup phase, track consecutive early results
-  if (!globalState.regime.hotMode && globalState.regime.todayResolved <= WarmupTrades) {
+  // Only long trades count toward warmup regime detection
+  if (!globalState.regime.hotMode && direction === "long") {
+    globalState.regime.warmupResolved++;
+
     if (wasWin) {
-      globalState.regime.earlyWins++;
+      globalState.regime.warmupLongWins++;
     } else {
-      globalState.regime.earlyLosses++;
+      globalState.regime.warmupLongLosses++;
     }
 
     // Check if warmup is complete
-    if (globalState.regime.todayResolved === WarmupTrades) {
-      if (globalState.regime.earlyWins === WarmupTrades) {
-        // All warmup trades won — activate hot mode
+    if (globalState.regime.warmupResolved >= WarmupTrades) {
+      const winRate = globalState.regime.warmupLongWins / globalState.regime.warmupResolved;
+      if (winRate >= HotThreshold) {
         globalState.regime.hotMode = true;
         globalState.maxSpend = globalState.baseMaxSpend * HotMultiplier;
-        log(`HOT MODE ACTIVATED: ${WarmupTrades}/${WarmupTrades} early wins. maxSpend scaled to ${globalState.maxSpend} (${HotMultiplier}x)`);
+        log(`HOT MODE ACTIVATED: ${globalState.regime.warmupLongWins}/${globalState.regime.warmupResolved} long wins (${(winRate * 100).toFixed(0)}% >= ${(HotThreshold * 100).toFixed(0)}%). maxSpend scaled to ${globalState.maxSpend} (${HotMultiplier}x)`);
       } else {
-        log(`Warmup complete: ${globalState.regime.earlyWins}/${WarmupTrades} wins. Staying at base leverage.`);
+        log(`Warmup complete: ${globalState.regime.warmupLongWins}/${globalState.regime.warmupResolved} long wins (${(winRate * 100).toFixed(0)}%). Staying at base leverage.`);
       }
     }
   }
 
   // Compounding: adjust baseMaxSpend based on cumulative P&L
-  // Win adds ~1% of position value, loss removes ~2%
-  // We approximate by adjusting baseMaxSpend proportionally
   if (wasWin) {
-    globalState.baseMaxSpend *= 1.004; // ~1% profit on a fraction of capital
+    globalState.baseMaxSpend *= 1.004;
   } else {
-    globalState.baseMaxSpend *= 0.992; // ~2% loss on a fraction of capital
+    globalState.baseMaxSpend *= 0.992;
   }
 
   // Re-apply hot multiplier if active

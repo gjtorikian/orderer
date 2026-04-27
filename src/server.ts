@@ -62,9 +62,9 @@ const globalState: GlobalState = {
   mktDataReqId: 0,
   slots: new Map(),
   regime: {
-    earlyWins: 0,
-    earlyLosses: 0,
-    todayResolved: 0,
+    warmupLongWins: 0,
+    warmupLongLosses: 0,
+    warmupResolved: 0,
     hotMode: false,
     currentDate: new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }),
     dailyWins: 0,
