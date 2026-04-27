@@ -28,41 +28,33 @@ Submit a trade signal. This is the primary endpoint called by the signal generat
 {
   "message": "b AAPL 150.00",
   "metrics": {
-    "boxRatio": 0.484,
-    "thrust": 1.314,
+    "boxRatio": 0.48,
+    "thrust": 1.31,
     "acceleration": 0.007,
     "velocity": 0.087,
-    "onBalanceRun": 0.825,
-    "vwapGain": 3.292
+    "onBalanceRun": 0.82,
+    "vwapGain": 3.29,
+    "signal": "L"
   }
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `message` | string | Yes | Trade signal. Format: `"b TICKER PRICE"`. The `b` prefix is required (historical convention for "buy signal"). |
-| `metrics` | object | No | Prediction metrics from figureer. When provided in SLOTS mode, the bot classifies the signal as long, short, or skip. When omitted, the signal is treated as a long buy. |
-
-**Metrics fields:**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `boxRatio` | number | Box ratio metric. |
-| `thrust` | number | Thrust metric. |
-| `acceleration` | number | Acceleration metric. |
-| `velocity` | number | Velocity metric. |
-| `onBalanceRun` | number | On-balance run metric. |
-| `vwapGain` | number | VWAP gain metric. |
+| Field            | Type   | Required | Description                                                                                                                                                    |
+| ---------------- | ------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `message`        | string | Yes      | Trade signal. Format: `"b TICKER PRICE"`. The `b` prefix is required (historical convention).                                                                  |
+| `metrics`        | object | No       | Prediction metrics and trade direction from rcandy.                                                                                                            |
+| `metrics.signal` | string | No       | Trade direction: `"L"` for long (buy), `"S"` for short (sell short). Defaults to `"L"` if omitted. The caller decides direction based on its own filter logic. |
+| `metrics.*`      | number | No       | The remaining fields (`boxRatio`, `thrust`, etc.) are the prediction metrics. Orderer passes them through for logging; it does not filter on them.             |
 
 **Responses:**
 
-| Status | Meaning |
-|--------|---------|
-| `200` | Trade accepted and order placed. In SLOTS mode, body includes slot info like `"Slot 3 long (4/25)"`. |
-| `202` | Trade deferred — previous order still open, or all slots occupied. |
-| `204` | Trade rejected — signal filtered out, cold shutdown active, or daily win limit reached. |
-| `404` | Auth failed. |
-| `503` | Bot not ready (still waiting for IBKR account data). |
+| Status | Meaning                                                                                              |
+| ------ | ---------------------------------------------------------------------------------------------------- |
+| `200`  | Trade accepted and order placed. In SLOTS mode, body includes slot info like `"Slot 3 long (4/25)"`. |
+| `202`  | Trade deferred — previous order still open, or all slots occupied.                                   |
+| `204`  | Trade rejected — cold shutdown active, or daily win limit reached.                                   |
+| `404`  | Auth failed.                                                                                         |
+| `503`  | Bot not ready (still waiting for IBKR account data).                                                 |
 
 ---
 
@@ -89,8 +81,7 @@ Predictions are appended to `predictions/YYYY-MM-DD.txt`.
 ### SLOTS mode
 
 ```
-POST /place with metrics
-  → classifySignal(): long / short / skip
+POST /place with signal: "L" or "S"
   → reqOpenOrders() → check slot availability
   → performSlotEntry(): place limit order (BUY for long, SELL for short)
   → monitorSlotBuyOrder(): cancel if price moves against (1m/3m/5m checks)

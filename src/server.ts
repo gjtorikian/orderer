@@ -70,7 +70,6 @@ const globalState: GlobalState = {
     dailyWins: 0,
     dailyLosses: 0,
   },
-  pendingMetrics: null,
 };
 
 app.get("/", createIndexRoute(ib));

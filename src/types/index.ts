@@ -13,15 +13,6 @@ export enum TradingMode {
 
 export type TradeDirection = "long" | "short";
 
-export interface PredictionMetrics {
-  boxRatio: number;
-  thrust: number;
-  acceleration: number;
-  velocity: number;
-  onBalanceRun: number;
-  vwapGain: number;
-}
-
 export interface CurrentTrade {
   price: number;
   quantity: number;
@@ -86,6 +77,4 @@ export interface GlobalState {
   slots: Map<number, Slot>;
   /** Adaptive regime state for intraday scaling */
   regime: RegimeState;
-  /** Metrics from the current prediction (passed by caller) */
-  pendingMetrics: PredictionMetrics | null;
 }
