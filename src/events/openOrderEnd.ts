@@ -46,6 +46,7 @@ export async function handleOpenOrderEnd(
 
       globalState.state = States.BUYING;
       globalState.sequence = globalState.message.split(" ");
+      globalState.direction = globalState.message.startsWith("s ") ? "short" : "long";
 
       performBuy(ib, globalState);
       return sendResponse(globalState.latestOrderRes!, 200);

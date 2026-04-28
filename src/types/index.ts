@@ -73,6 +73,8 @@ export interface GlobalState {
   monitorPrice: number;
   /** reqId for the active market data subscription, 0 if none */
   mktDataReqId: number;
+  /** Trade direction for non-slot modes */
+  direction: TradeDirection;
   /** Active slots for SLOTS mode, keyed by slot id */
   slots: Map<number, Slot>;
   /** Adaptive regime state for intraday scaling */

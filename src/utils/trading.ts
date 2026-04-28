@@ -42,7 +42,10 @@ export function performBuy(
   // Use and increment the next order ID
   const orderId = globalState.nextOrderId++;
 
-  log(`Placing buy #${orderId} of ${stock}: ${quantity} @ ${price}`);
+  const direction = globalState.direction;
+  const action = direction === "long" ? OrderAction.BUY : OrderAction.SELL;
+  const dirLabel = direction === "long" ? "buy" : "short sell";
+  log(`Placing ${dirLabel} #${orderId} of ${stock}: ${quantity} @ ${price}`);
 
   const contract: Contract = {
     symbol: stock,
@@ -53,7 +56,7 @@ export function performBuy(
 
   const order: Order = {
     orderType: OrderType.LMT,
-    action: OrderAction.BUY,
+    action,
     lmtPrice: price,
     orderId,
     totalQuantity: quantity,
@@ -188,25 +191,39 @@ export function performSell(
 ): void {
   const stock: string = globalState.currentTrade.symbol;
   const quantity: number = globalState.currentTrade.quantity;
-  const buyPrice: number = globalState.currentTrade.price;
+  const entryPrice: number = globalState.currentTrade.price;
+  const isShort = globalState.direction === "short";
 
   // Calculate profit target price
+  // Long: profit = sell higher, Short: profit = cover lower
   let profitPrice: number;
   if (TRADING_MODE === TradingMode.PERCENTAGE) {
-    profitPrice = round(WinPercentage * buyPrice, 2);
+    profitPrice = isShort
+      ? round((2 - WinPercentage) * entryPrice, 2)
+      : round(WinPercentage * entryPrice, 2);
   } else {
     // FIXED mode: calculate price to achieve fixed profit amount
-    profitPrice = round(buyPrice + (FixedProfitAmount / quantity), 2);
+    profitPrice = isShort
+      ? round(entryPrice - (FixedProfitAmount / quantity), 2)
+      : round(entryPrice + (FixedProfitAmount / quantity), 2);
   }
 
   // Calculate stop loss price
+  // Long: stop = sell lower, Short: stop = cover higher
   let stopLossPrice: number;
   if (TRADING_MODE === TradingMode.PERCENTAGE) {
-    stopLossPrice = round(LossPercentage * buyPrice, 2);
+    stopLossPrice = isShort
+      ? round((2 - LossPercentage) * entryPrice, 2)
+      : round(LossPercentage * entryPrice, 2);
   } else {
     // FIXED mode: calculate price for fixed loss amount
-    stopLossPrice = round(buyPrice - (FixedLossAmount / quantity), 2);
+    stopLossPrice = isShort
+      ? round(entryPrice + (FixedLossAmount / quantity), 2)
+      : round(entryPrice - (FixedLossAmount / quantity), 2);
   }
+
+  // Exit action is opposite of entry
+  const exitAction = isShort ? OrderAction.BUY : OrderAction.SELL;
 
   const contract: Contract = {
     symbol: stock,
@@ -225,34 +242,35 @@ export function performSell(
   // Order 1: Profit Target (Limit Order)
   const profitOrder: Order = {
     orderType: OrderType.LMT,
-    action: OrderAction.SELL,
+    action: exitAction,
     lmtPrice: profitPrice,
     orderId: profitOrderId,
     totalQuantity: quantity,
     account: IBKR_ACCOUNT_ID,
     tif: TimeInForce.GTC,
-    transmit: true,  // Transmit order immediately
+    transmit: true,
     outsideRth: true,
     ocaGroup,
-    ocaType: 1,  // Cancel all remaining orders on fill
+    ocaType: 1,
   };
 
   // Order 2: Stop Loss
   const stopLossOrder: Order = {
-    orderType: OrderType.STP,  // Stop order
-    action: OrderAction.SELL,
-    auxPrice: stopLossPrice,  // Stop trigger price
+    orderType: OrderType.STP,
+    action: exitAction,
+    auxPrice: stopLossPrice,
     orderId: stopLossOrderId,
     totalQuantity: quantity,
     account: IBKR_ACCOUNT_ID,
     tif: TimeInForce.GTC,
-    transmit: true,  // Transmit order immediately
+    transmit: true,
     outsideRth: true,
     ocaGroup,
-    ocaType: 1,  // Cancel all remaining orders on fill
+    ocaType: 1,
   };
 
-  log(`Placing OCA sell orders for ${stock}: ${quantity} shares`);
+  const dirLabel = isShort ? "cover" : "sell";
+  log(`Placing OCA ${dirLabel} orders for ${stock}: ${quantity} shares`);
   log(`  Profit target #${profitOrderId}: LIMIT @ ${profitPrice}`);
   log(`  Stop loss #${stopLossOrderId}: STOP @ ${stopLossPrice}`);
 

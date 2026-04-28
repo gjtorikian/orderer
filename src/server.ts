@@ -60,6 +60,7 @@ const globalState: GlobalState = {
   ready: false,
   monitorPrice: 0,
   mktDataReqId: 0,
+  direction: "long",
   slots: new Map(),
   regime: {
     warmupLongWins: 0,

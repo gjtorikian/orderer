@@ -65,6 +65,8 @@ export async function handleOrderStatus(
     (unfulfilledCancelled || remaining == 0)
   ) {
     globalState.notifiedOfShort = false;
+    const direction = globalState.direction;
+    globalState.direction = "long";
     globalState.state = States.READY_TO_BUY;
 
     // Determine if this was a profit or loss
@@ -78,7 +80,8 @@ export async function handleOrderStatus(
       }
 
       const orderType: string = wasProfit ? "PROFIT" : "STOP LOSS";
-      const text: string = `${orderType}: Sold order #${orderId} (${globalState.winTimes} / ${WinCounterMax})`;
+      const dirLabel = direction === "short" ? " (SHORT)" : "";
+      const text: string = `${orderType}${dirLabel}: Sold order #${orderId} (${globalState.winTimes} / ${WinCounterMax})`;
       log(text);
 
       if (WinCounterMax <= 5 || globalState.winTimes % 5 == 0 || wasLoss) {
