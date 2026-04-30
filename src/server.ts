@@ -136,7 +136,7 @@ ib.on(EventName.accountSummaryEnd, (reqId: number): void => {
 });
 
 ib.on(EventName.error, (err: Error, code: ErrorCode, reqId: number) => {
-  handleError(err, code, reqId);
+  handleError(globalState, ib, err, code, reqId);
 }).on(
   EventName.position,
   async (
