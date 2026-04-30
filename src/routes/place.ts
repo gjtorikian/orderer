@@ -15,12 +15,15 @@ export function createPlaceRoute(
     res: express.Response,
   ): Promise<void | express.Response> => {
     try {
+      const body = req.body;
+      globalState.message = body?.message ?? "";
+
       if (!globalState.ready) {
+        log(
+          `503 /place: bot not ready (state=${globalState.state}, ready=${globalState.ready}, nextOrderId=${globalState.nextOrderId}, maxSpend=${globalState.maxSpend}) for "${globalState.message}"`,
+        );
         return res.status(503).send("Bot is not ready yet (waiting for account data)");
       }
-
-      const body = req.body;
-      globalState.message = body.message;
 
       if (!verifyPassword(req.headers.authorization as string)) {
         return res.sendStatus(404);
