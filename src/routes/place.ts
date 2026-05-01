@@ -5,6 +5,10 @@ import { verifyPassword } from "../utils/auth";
 import { log } from "../utils/logger";
 import { checkRegimeDayRollover } from "../utils/regime";
 
+const NOT_READY_LOG_INTERVAL_MS = 60_000;
+let lastNotReadyLogAt = 0;
+let suppressedNotReadyCount = 0;
+
 export function createPlaceRoute(
   globalState: GlobalState,
   twilio: any,
@@ -19,9 +23,19 @@ export function createPlaceRoute(
       globalState.message = body?.message ?? "";
 
       if (!globalState.ready) {
-        log(
-          `503 /place: bot not ready (state=${globalState.state}, ready=${globalState.ready}, nextOrderId=${globalState.nextOrderId}, maxSpend=${globalState.maxSpend}) for "${globalState.message}"`,
-        );
+        const now = Date.now();
+        if (now - lastNotReadyLogAt >= NOT_READY_LOG_INTERVAL_MS) {
+          const suffix = suppressedNotReadyCount > 0
+            ? ` (${suppressedNotReadyCount} similar suppressed)`
+            : "";
+          log(
+            `503 /place: bot not ready (state=${globalState.state}, ready=${globalState.ready}, nextOrderId=${globalState.nextOrderId}, maxSpend=${globalState.maxSpend}) for "${globalState.message}"${suffix}`,
+          );
+          lastNotReadyLogAt = now;
+          suppressedNotReadyCount = 0;
+        } else {
+          suppressedNotReadyCount++;
+        }
         return res.status(503).send("Bot is not ready yet (waiting for account data)");
       }
 
