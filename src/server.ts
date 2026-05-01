@@ -79,9 +79,10 @@ app.post("/message", createMessageRoute());
 
 ib.connect();
 ib.reqGlobalCancel();
-ib.reqIds();
 
 const ACCOUNT_SUMMARY_REQ_ID = 9001;
+const RECONNECT_DELAY_MS = 5_000;
+let reconnectScheduled = false;
 
 let accountBuyingPower = 0;
 let accountRegTEquity = 0; // PreviousDayEquityWithLoanValue
@@ -161,8 +162,32 @@ ib.on(EventName.nextValidId, (orderId: number): void => {
 });
 
 ib.on(EventName.connected, (): void => {
+  log("IB connected.");
+  reconnectScheduled = false;
+  // Reset account summary accumulators so reconnect re-derives caps cleanly
+  accountBuyingPower = 0;
+  accountRegTEquity = 0;
+  accountInitMarginReq = 0;
+  ib.reqIds();
   ib.reqAccountSummary(ACCOUNT_SUMMARY_REQ_ID, "All", "TotalCashValue,BuyingPower,RegTEquity,InitMarginReq");
   log("Requesting account summary...");
+});
+
+ib.on(EventName.disconnected, (): void => {
+  log("IB disconnected. Marking bot not-ready and scheduling reconnect.");
+  globalState.ready = false;
+  if (!reconnectScheduled) {
+    reconnectScheduled = true;
+    setTimeout(() => {
+      log("Attempting IB reconnect...");
+      try {
+        ib.connect();
+      } catch (err: any) {
+        log(`IB reconnect attempt threw: ${err?.message ?? err}`);
+        reconnectScheduled = false;
+      }
+    }, RECONNECT_DELAY_MS);
+  }
 });
 
 ib.on(
