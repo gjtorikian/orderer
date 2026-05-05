@@ -32,8 +32,21 @@ export function performBuy(
   const stock: string = globalState.sequence[1];
   const price: number = parseFloat(globalState.sequence[2]);
 
-  let quantity: number = globalState.maxSpend / price;
-  quantity = Math.floor(quantity / 10) * 10;
+  const quantity: number = Math.floor(globalState.maxSpend / price);
+  if (quantity < 1) {
+    log(`Skipping ${stock}: maxSpend ${globalState.maxSpend} / price ${price} = ${quantity} shares`);
+    globalState.state = States.READY_TO_BUY;
+    if (globalState.latestOrderRes && !globalState.latestOrderResSent) {
+      try {
+        globalState.latestOrderRes.status(422).send(`Insufficient maxSpend for ${stock} @ ${price}`);
+      } catch {
+        // response may already be closed
+      }
+      globalState.latestOrderResSent = true;
+    }
+    globalState.latestOrderRes = null;
+    return;
+  }
 
   globalState.currentTrade.symbol = stock;
   globalState.currentTrade.price = price;
@@ -325,8 +338,11 @@ export function performSlotEntry(
   const stock: string = globalState.sequence[1];
   const price: number = parseFloat(globalState.sequence[2]);
 
-  let quantity: number = globalState.maxSpend / price;
-  quantity = Math.floor(quantity / 10) * 10;
+  const quantity: number = Math.floor(globalState.maxSpend / price);
+  if (quantity < 1) {
+    log(`[Slot ${slotId}] Skipping ${stock}: maxSpend ${globalState.maxSpend} / price ${price} = ${quantity} shares`);
+    return;
+  }
 
   const orderId = globalState.nextOrderId++;
   const mktDataReqId = SLOT_MKT_DATA_REQ_BASE + slotId;
