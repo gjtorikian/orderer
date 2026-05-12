@@ -95,7 +95,7 @@ ib.on(
     if (tag === "TotalCashValue") {
       if (UseAllCapital) {
         const totalCash = parseFloat(value);
-        globalState.maxSpend = totalCash * MaxSpendMultiplier;
+        globalState.maxSpend = Math.max(0, totalCash * MaxSpendMultiplier);
         globalState.baseMaxSpend = globalState.maxSpend;
         log(`Account ${account} TotalCashValue: ${totalCash}, maxSpend set to ${globalState.maxSpend} (multiplier: ${MaxSpendMultiplier})`);
       } else {
@@ -184,6 +184,7 @@ ib.on(EventName.disconnected, (): void => {
         ib.connect();
       } catch (err: any) {
         log(`IB reconnect attempt threw: ${err?.message ?? err}`);
+      } finally {
         reconnectScheduled = false;
       }
     }, RECONNECT_DELAY_MS);
