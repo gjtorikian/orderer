@@ -53,7 +53,7 @@ Single-position mode. Profit and loss targets are fixed dollar amounts.
 
 ### `SLOTS`
 
-Multi-position mode. Runs up to `MAX_SLOTS` independent concurrent positions, each with fixed-dollar exit targets. Supports both long and short trades via signal classification.
+Multi-position mode. Runs up to `MAX_SLOTS` independent concurrent positions, each with fixed-dollar exit targets.
 
 | Variable             | Default | Description                                                     |
 | -------------------- | ------- | --------------------------------------------------------------- |
@@ -83,17 +83,17 @@ The adaptive regime system detects "hot" days early and scales up position sizes
 
 | Variable               | Default | Description                                                                                                                                                                                          |
 | ---------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WARMUP_TRADES`        | `5`     | Number of initial long trades to evaluate before deciding regime.                                                                                                                                    |
+| `WARMUP_TRADES`        | `5`     | Number of initial trades to evaluate before deciding regime.                                                                                                                                         |
 | `HOT_THRESHOLD`        | `0.80`  | Win rate threshold during warmup to activate hot mode. `0.80` = 4 out of 5 warmup trades must win.                                                                                                   |
 | `HOT_MULTIPLIER`       | `2.5`   | Multiplier applied to `maxSpend` when hot mode activates. Stacks with `MAX_SPEND_MULTIPLIER`. For example, `MAX_SPEND_MULTIPLIER=4` + `HOT_MULTIPLIER=2.5` = 10x effective leverage during hot mode. |
-| `COLD_SHUTDOWN_LOSSES` | `2`     | If this many long losses occur during the warmup period, stop accepting trades for the rest of the day.                                                                                              |
+| `COLD_SHUTDOWN_LOSSES` | `2`     | If this many losses occur during the warmup period, stop accepting trades for the rest of the day.                                                                                                   |
 
 ### How it works
 
 1. At the start of each trading day, the regime resets to base mode.
-2. The first `WARMUP_TRADES` **long** trade results are tracked. Short trades do not count toward warmup (they're too rare to be a reliable regime signal).
-3. If the long win rate during warmup meets or exceeds `HOT_THRESHOLD`, **hot mode** activates: `maxSpend` is multiplied by `HOT_MULTIPLIER` for all remaining trades that day (both long and short).
-4. If long losses during warmup reach `COLD_SHUTDOWN_LOSSES`, the bot enters **cold shutdown** and rejects all further signals for the day.
+2. The first `WARMUP_TRADES` trade results are tracked.
+3. If the win rate during warmup meets or exceeds `HOT_THRESHOLD`, **hot mode** activates: `maxSpend` is multiplied by `HOT_MULTIPLIER` for all remaining trades that day.
+4. If losses during warmup reach `COLD_SHUTDOWN_LOSSES`, the bot enters **cold shutdown** and rejects all further signals for the day.
 5. Otherwise, the bot continues at base leverage.
 
 ### Compounding
@@ -104,24 +104,6 @@ After each resolved trade, `baseMaxSpend` is adjusted slightly:
 - Loss: `baseMaxSpend *= 0.992` (reduce exposure after loss)
 
 This compounds over days — position sizes grow as the account grows.
-
-## Signal Direction
-
-The caller (rcandy) determines trade direction and passes it via `metrics.signal` in the POST body:
-
-| Value | Direction          | Description                                                                    |
-| ----- | ------------------ | ------------------------------------------------------------------------------ |
-| `"L"` | Long (buy)         | Buy shares, sell to exit. Default if `metrics` or `metrics.signal` is omitted. |
-| `"S"` | Short (sell short) | Sell short to enter, buy to cover to exit.                                     |
-
-Orderer does not apply its own filters — it trusts the caller's classification. Filter logic (which metrics indicate long vs short) lives in rcandy's `PriceWithinLongMetricRange` / `PriceWithinShortMetricRange` functions.
-
-### How short trades work
-
-- **Entry:** A `SELL` limit order opens a short position.
-- **Exit (profit):** A `BUY` limit order covers at a lower price (entry - `SLOT_PROFIT_AMOUNT / quantity`).
-- **Exit (stop):** A `BUY` stop order covers at a higher price (entry + `SLOT_LOSS_AMOUNT / quantity`).
-- Both exit orders are placed as an OCA pair — first to fill cancels the other.
 
 ## Example Configurations
 

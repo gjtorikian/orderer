@@ -1,6 +1,6 @@
 import { Contract, Order, OrderAction, OrderType, SecType, TimeInForce } from "@stoqey/ib";
 import { WinPercentage, LossPercentage, IBKR_ACCOUNT_ID, TRADING_MODE, FixedProfitAmount, FixedLossAmount, SlotProfitAmount, SlotLossAmount, MaxSlots } from "../config/constants";
-import { type GlobalState, type Slot, type TradeDirection, States, TradingMode } from "../types";
+import { type GlobalState, type Slot, States, TradingMode } from "../types";
 import { log } from "./logger";
 import crypto from 'node:crypto';
 
@@ -55,10 +55,7 @@ export function performBuy(
   // Use and increment the next order ID
   const orderId = globalState.nextOrderId++;
 
-  const direction = globalState.direction;
-  const action = direction === "long" ? OrderAction.BUY : OrderAction.SELL;
-  const dirLabel = direction === "long" ? "buy" : "short sell";
-  log(`Placing ${dirLabel} #${orderId} of ${stock}: ${quantity} @ ${price}`);
+  log(`Placing buy #${orderId} of ${stock}: ${quantity} @ ${price}`);
 
   const contract: Contract = {
     symbol: stock,
@@ -69,7 +66,7 @@ export function performBuy(
 
   const order: Order = {
     orderType: OrderType.LMT,
-    action,
+    action: OrderAction.BUY,
     lmtPrice: price,
     orderId,
     totalQuantity: quantity,
@@ -205,38 +202,20 @@ export function performSell(
   const stock: string = globalState.currentTrade.symbol;
   const quantity: number = globalState.currentTrade.quantity;
   const entryPrice: number = globalState.currentTrade.price;
-  const isShort = globalState.direction === "short";
 
-  // Calculate profit target price
-  // Long: profit = sell higher, Short: profit = cover lower
   let profitPrice: number;
   if (TRADING_MODE === TradingMode.PERCENTAGE) {
-    profitPrice = isShort
-      ? round((2 - WinPercentage) * entryPrice, 2)
-      : round(WinPercentage * entryPrice, 2);
+    profitPrice = round(WinPercentage * entryPrice, 2);
   } else {
-    // FIXED mode: calculate price to achieve fixed profit amount
-    profitPrice = isShort
-      ? round(entryPrice - (FixedProfitAmount / quantity), 2)
-      : round(entryPrice + (FixedProfitAmount / quantity), 2);
+    profitPrice = round(entryPrice + (FixedProfitAmount / quantity), 2);
   }
 
-  // Calculate stop loss price
-  // Long: stop = sell lower, Short: stop = cover higher
   let stopLossPrice: number;
   if (TRADING_MODE === TradingMode.PERCENTAGE) {
-    stopLossPrice = isShort
-      ? round((2 - LossPercentage) * entryPrice, 2)
-      : round(LossPercentage * entryPrice, 2);
+    stopLossPrice = round(LossPercentage * entryPrice, 2);
   } else {
-    // FIXED mode: calculate price for fixed loss amount
-    stopLossPrice = isShort
-      ? round(entryPrice + (FixedLossAmount / quantity), 2)
-      : round(entryPrice - (FixedLossAmount / quantity), 2);
+    stopLossPrice = round(entryPrice - (FixedLossAmount / quantity), 2);
   }
-
-  // Exit action is opposite of entry
-  const exitAction = isShort ? OrderAction.BUY : OrderAction.SELL;
 
   const contract: Contract = {
     symbol: stock,
@@ -255,7 +234,7 @@ export function performSell(
   // Order 1: Profit Target (Limit Order)
   const profitOrder: Order = {
     orderType: OrderType.LMT,
-    action: exitAction,
+    action: OrderAction.SELL,
     lmtPrice: profitPrice,
     orderId: profitOrderId,
     totalQuantity: quantity,
@@ -270,7 +249,7 @@ export function performSell(
   // Order 2: Stop Loss
   const stopLossOrder: Order = {
     orderType: OrderType.STP,
-    action: exitAction,
+    action: OrderAction.SELL,
     auxPrice: stopLossPrice,
     orderId: stopLossOrderId,
     totalQuantity: quantity,
@@ -282,8 +261,7 @@ export function performSell(
     ocaType: 1,
   };
 
-  const dirLabel = isShort ? "cover" : "sell";
-  log(`Placing OCA ${dirLabel} orders for ${stock}: ${quantity} shares`);
+  log(`Placing OCA sell orders for ${stock}: ${quantity} shares`);
   log(`  Profit target #${profitOrderId}: LIMIT @ ${profitPrice}`);
   log(`  Stop loss #${stopLossOrderId}: STOP @ ${stopLossPrice}`);
 
@@ -333,7 +311,6 @@ export function performSlotEntry(
   ib: any,
   globalState: GlobalState,
   slotId: number,
-  direction: TradeDirection,
 ): void {
   const stock: string = globalState.sequence[1];
   const price: number = parseFloat(globalState.sequence[2]);
@@ -350,7 +327,6 @@ export function performSlotEntry(
   const slot: Slot = {
     id: slotId,
     state: States.BUYING,
-    direction,
     currentTrade: { symbol: stock, price, quantity },
     lastOrderId: orderId,
     profitTargetOrderId: 0,
@@ -362,8 +338,7 @@ export function performSlotEntry(
 
   globalState.slots.set(slotId, slot);
 
-  const action = direction === "long" ? OrderAction.BUY : OrderAction.SELL;
-  log(`[Slot ${slotId}] Placing ${direction} entry #${orderId} of ${stock}: ${quantity} @ ${price}`);
+  log(`[Slot ${slotId}] Placing entry #${orderId} of ${stock}: ${quantity} @ ${price}`);
 
   const contract: Contract = {
     symbol: stock,
@@ -374,7 +349,7 @@ export function performSlotEntry(
 
   const order: Order = {
     orderType: OrderType.LMT,
-    action,
+    action: OrderAction.BUY,
     lmtPrice: price,
     orderId,
     totalQuantity: quantity,
@@ -482,24 +457,9 @@ export function performSlotSell(
   const stock: string = slot.currentTrade.symbol;
   const quantity: number = slot.currentTrade.quantity;
   const entryPrice: number = slot.currentTrade.price;
-  const isShort = slot.direction === "short";
 
-  // SLOTS mode uses fixed dollar amounts for profit/loss targets
-  // Long: profit = sell higher, stop = sell lower
-  // Short: profit = cover lower, stop = cover higher
-  let profitPrice: number;
-  let stopLossPrice: number;
-
-  if (isShort) {
-    profitPrice = round(entryPrice - (SlotProfitAmount / quantity), 2);
-    stopLossPrice = round(entryPrice + (SlotLossAmount / quantity), 2);
-  } else {
-    profitPrice = round(entryPrice + (SlotProfitAmount / quantity), 2);
-    stopLossPrice = round(entryPrice - (SlotLossAmount / quantity), 2);
-  }
-
-  // Exit action is opposite of entry
-  const exitAction = isShort ? OrderAction.BUY : OrderAction.SELL;
+  const profitPrice = round(entryPrice + (SlotProfitAmount / quantity), 2);
+  const stopLossPrice = round(entryPrice - (SlotLossAmount / quantity), 2);
 
   const contract: Contract = {
     symbol: stock,
@@ -515,7 +475,7 @@ export function performSlotSell(
 
   const profitOrder: Order = {
     orderType: OrderType.LMT,
-    action: exitAction,
+    action: OrderAction.SELL,
     lmtPrice: profitPrice,
     orderId: profitOrderId,
     totalQuantity: quantity,
@@ -529,7 +489,7 @@ export function performSlotSell(
 
   const stopLossOrder: Order = {
     orderType: OrderType.STP,
-    action: exitAction,
+    action: OrderAction.SELL,
     auxPrice: stopLossPrice,
     orderId: stopLossOrderId,
     totalQuantity: quantity,
@@ -541,8 +501,7 @@ export function performSlotSell(
     ocaType: 1,
   };
 
-  const dirLabel = isShort ? "cover" : "sell";
-  log(`[Slot ${slot.id}] Placing OCA ${dirLabel} orders for ${stock}: ${quantity} shares (${slot.direction})`);
+  log(`[Slot ${slot.id}] Placing OCA sell orders for ${stock}: ${quantity} shares`);
   log(`[Slot ${slot.id}]   Profit target #${profitOrderId}: LIMIT @ ${profitPrice}`);
   log(`[Slot ${slot.id}]   Stop loss #${stopLossOrderId}: STOP @ ${stopLossPrice}`);
 

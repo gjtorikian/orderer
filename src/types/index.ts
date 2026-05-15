@@ -11,8 +11,6 @@ export enum TradingMode {
   SLOTS = "SLOTS",
 }
 
-export type TradeDirection = "long" | "short";
-
 export interface CurrentTrade {
   price: number;
   quantity: number;
@@ -22,7 +20,6 @@ export interface CurrentTrade {
 export interface Slot {
   id: number;
   state: States;
-  direction: TradeDirection;
   currentTrade: CurrentTrade;
   lastOrderId: number;
   profitTargetOrderId: number;
@@ -33,19 +30,12 @@ export interface Slot {
 }
 
 export interface RegimeState {
-  /** Long wins during warmup period */
-  warmupLongWins: number;
-  /** Long losses during warmup period */
-  warmupLongLosses: number;
-  /** Long trades resolved during warmup (shorts don't count) */
+  warmupWins: number;
+  warmupLosses: number;
   warmupResolved: number;
-  /** Whether hot mode is active for the rest of the day */
   hotMode: boolean;
-  /** Date string (YYYY-MM-DD) to detect day rollover */
   currentDate: string;
-  /** Daily wins (all directions) for tracking */
   dailyWins: number;
-  /** Daily losses (all directions) for tracking */
   dailyLosses: number;
 }
 
@@ -58,7 +48,6 @@ export interface GlobalState {
   latestOrderRes: any | null;
   latestOrderResSent: boolean;
   latestOrderFilled: boolean;
-  notifiedOfShort: boolean;
   positionsCount: number;
   lastOrderId: number;
   stopLossOrderId: number;
@@ -73,8 +62,6 @@ export interface GlobalState {
   monitorPrice: number;
   /** reqId for the active market data subscription, 0 if none */
   mktDataReqId: number;
-  /** Trade direction for non-slot modes */
-  direction: TradeDirection;
   /** Active slots for SLOTS mode, keyed by slot id */
   slots: Map<number, Slot>;
   /** Adaptive regime state for intraday scaling */

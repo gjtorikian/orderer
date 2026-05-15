@@ -46,7 +46,6 @@ export async function handleOpenOrderEnd(
 
       globalState.state = States.BUYING;
       globalState.sequence = globalState.message.split(" ");
-      globalState.direction = globalState.message.startsWith("s ") ? "short" : "long";
 
       performBuy(ib, globalState);
       return sendResponse(globalState.latestOrderRes!, 200);
@@ -86,12 +85,10 @@ function handleSlotsOpenOrderEnd(
 
     globalState.sequence = globalState.message.split(" ");
 
-    // Determine direction from message prefix: "b" = long, "s" = short
-    const direction = globalState.message.startsWith("s ") ? "short" as const : "long" as const;
-    performSlotEntry(ib, globalState, slotId, direction);
+    performSlotEntry(ib, globalState, slotId);
 
     const active = usedSlots + 1;
-    return sendResponse(globalState.latestOrderRes!, 200, `Slot ${slotId} ${direction} (${active}/${MaxSlots})`);
+    return sendResponse(globalState.latestOrderRes!, 200, `Slot ${slotId} (${active}/${MaxSlots})`);
   });
 
   ib.reqPositions();

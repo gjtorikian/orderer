@@ -55,17 +55,9 @@ export function createPlaceRoute(
       // Reset regime on day change
       checkRegimeDayRollover(globalState);
 
-      // Cold shutdown: if early long losses exceed threshold, stop for the day
-      if (globalState.regime.warmupLongLosses >= ColdShutdownLosses && !globalState.regime.hotMode) {
+      // Cold shutdown: if early losses exceed threshold, stop for the day
+      if (globalState.regime.warmupLosses >= ColdShutdownLosses && !globalState.regime.hotMode) {
         return res.status(204).send("Cold shutdown: too many early losses today");
-      }
-
-      // Direction from caller via metrics.signal: "L" (long/buy) or "S" (short/sell)
-      // If not provided, default to long for backwards compatibility
-      const signal = (body.metrics?.signal as string || "L").toUpperCase();
-      if (signal === "S") {
-        globalState.message = "s" + globalState.message.slice(1);
-        log(`SHORT signal for ${globalState.message}`);
       }
 
       globalState.openOrders = 0;

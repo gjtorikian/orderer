@@ -64,9 +64,6 @@ export async function handleOrderStatus(
     globalState.state == States.SELLING &&
     (unfulfilledCancelled || remaining == 0)
   ) {
-    globalState.notifiedOfShort = false;
-    const direction = globalState.direction;
-    globalState.direction = "long";
     globalState.state = States.READY_TO_BUY;
 
     // Determine if this was a profit or loss
@@ -80,8 +77,7 @@ export async function handleOrderStatus(
       }
 
       const orderType: string = wasProfit ? "PROFIT" : "STOP LOSS";
-      const dirLabel = direction === "short" ? " (SHORT)" : "";
-      const text: string = `${orderType}${dirLabel}: Sold order #${orderId} (${globalState.winTimes} / ${WinCounterMax})`;
+      const text: string = `${orderType}: Sold order #${orderId} (${globalState.winTimes} / ${WinCounterMax})`;
       log(text);
 
       if (WinCounterMax <= 5 || globalState.winTimes % 5 == 0 || wasLoss) {
@@ -146,13 +142,11 @@ async function handleSlotOrderStatus(
   } else if (isSellOrder && slot.state === States.SELLING && (unfulfilledCancelled || remaining == 0)) {
     const wasProfit = isProfitTargetOrder;
     const symbol = slot.currentTrade.symbol;
-    const direction = slot.direction;
 
     // Free the slot — position is closed, opens a spot for next bet
     globalState.slots.delete(slot.id);
 
-    // Update adaptive regime (only long results count toward warmup)
-    updateRegime(globalState, wasProfit, direction);
+    updateRegime(globalState, wasProfit);
 
     setTimeout(async (): Promise<void> => {
       if (wasProfit) {
@@ -160,10 +154,9 @@ async function handleSlotOrderStatus(
       }
 
       const orderType: string = wasProfit ? "PROFIT" : "STOP LOSS";
-      const dirLabel = direction === "short" ? " (SHORT)" : "";
       const regime = globalState.regime.hotMode ? " [HOT]" : "";
       const slotsActive = globalState.slots.size;
-      const text: string = `[Slot] ${orderType}${dirLabel}${regime}: ${symbol} #${orderId} (active: ${slotsActive}/${MaxSlots}, day: ${globalState.regime.dailyWins}W/${globalState.regime.dailyLosses}L)`;
+      const text: string = `[Slot] ${orderType}${regime}: ${symbol} #${orderId} (active: ${slotsActive}/${MaxSlots}, day: ${globalState.regime.dailyWins}W/${globalState.regime.dailyLosses}L)`;
       log(text);
 
       if (MaxSlots <= 5 || globalState.winTimes % 5 === 0 || !wasProfit) {
