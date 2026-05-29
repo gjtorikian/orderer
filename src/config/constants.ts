@@ -7,6 +7,7 @@ export const accountSid: string = process.env.TWILIO_ACCOUNT_SID!;
 export const authToken: string = process.env.TWILIO_AUTH_TOKEN!;
 
 export const port: number = 5592;
+export const DRY_RUN: boolean = (process.env.DRY_RUN || "").toLowerCase() === "true";
 export const MAX_SPEND_RAW: string = process.env.MAX_SPEND || "100000";
 export const UseAllCapital: boolean = MAX_SPEND_RAW.toUpperCase() === "ALL";
 if (!UseAllCapital && isNaN(parseInt(MAX_SPEND_RAW, 10))) {
