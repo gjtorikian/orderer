@@ -62,6 +62,23 @@ Multi-position mode. Runs up to `MAX_SLOTS` independent concurrent positions, ea
 | `SLOT_PROFIT_AMOUNT` | `100`   | Per-slot profit target in dollars.                              |
 | `SLOT_LOSS_AMOUNT`   | `200`   | Per-slot stop loss in dollars.                                  |
 
+### Upside-only exits (`DISABLE_STOP_LOSS`)
+
+| Variable            | Default | Description                                                                          |
+| ------------------- | ------- | ----------------------------------------------------------------------------------- |
+| `DISABLE_STOP_LOSS` | `false` | When `true`, place only the profit-target limit sell and skip the stop loss entirely. |
+
+Applies to all three trading modes. When enabled, a filled buy is followed by a
+single profit-target limit sell instead of the usual OCA (profit + stop) pair. A
+losing position is **never auto-sold** — it holds indefinitely until price recovers
+to the profit target or you close it manually. The `*_LOSS_*` / `LOSS_PERCENTAGE`
+variables are ignored in this mode.
+
+Note: because the stop loss is what registers a "loss," with it disabled every
+automatic exit fills as a profit. In `SLOTS` mode this means the adaptive regime
+only ever sees wins — `COLD_SHUTDOWN_LOSSES` can't trigger and hot mode trips more
+readily.
+
 ## Position Sizing
 
 | Variable               | Default  | Description                                                                                                                           |

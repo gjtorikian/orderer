@@ -1,5 +1,5 @@
 import { Contract, Order, OrderAction, OrderType, SecType, TimeInForce } from "@stoqey/ib";
-import { WinPercentage, LossPercentage, IBKR_ACCOUNT_ID, TRADING_MODE, FixedProfitAmount, FixedLossAmount, SlotProfitAmount, SlotLossAmount, MaxSlots } from "../config/constants";
+import { WinPercentage, LossPercentage, IBKR_ACCOUNT_ID, TRADING_MODE, FixedProfitAmount, FixedLossAmount, SlotProfitAmount, SlotLossAmount, MaxSlots, DisableStopLoss } from "../config/constants";
 import { type GlobalState, type Slot, States, TradingMode } from "../types";
 import { log } from "./logger";
 import crypto from 'node:crypto';
@@ -210,13 +210,6 @@ export function performSell(
     profitPrice = round(entryPrice + (FixedProfitAmount / quantity), 2);
   }
 
-  let stopLossPrice: number;
-  if (TRADING_MODE === TradingMode.PERCENTAGE) {
-    stopLossPrice = round(LossPercentage * entryPrice, 2);
-  } else {
-    stopLossPrice = round(entryPrice - (FixedLossAmount / quantity), 2);
-  }
-
   const contract: Contract = {
     symbol: stock,
     exchange: "SMART",
@@ -224,8 +217,39 @@ export function performSell(
     secType: SecType.STK,
   };
 
-  // Use and increment the next order ID for both orders
   const profitOrderId = globalState.nextOrderId++;
+
+  // Upside-only mode: place just the profit-target limit sell, no downside stop.
+  if (DisableStopLoss) {
+    const profitOrder: Order = {
+      orderType: OrderType.LMT,
+      action: OrderAction.SELL,
+      lmtPrice: profitPrice,
+      orderId: profitOrderId,
+      totalQuantity: quantity,
+      account: IBKR_ACCOUNT_ID,
+      tif: TimeInForce.GTC,
+      transmit: true,
+      outsideRth: true,
+    };
+
+    log(`Placing upside-only sell for ${stock}: ${quantity} shares`);
+    log(`  Profit target #${profitOrderId}: LIMIT @ ${profitPrice} (no stop loss)`);
+
+    ib.placeOrder(profitOrderId, contract, profitOrder);
+
+    globalState.profitTargetOrderId = profitOrderId;
+    globalState.stopLossOrderId = 0;
+    return;
+  }
+
+  let stopLossPrice: number;
+  if (TRADING_MODE === TradingMode.PERCENTAGE) {
+    stopLossPrice = round(LossPercentage * entryPrice, 2);
+  } else {
+    stopLossPrice = round(entryPrice - (FixedLossAmount / quantity), 2);
+  }
+
   const stopLossOrderId = globalState.nextOrderId++;
 
   // Create OCA group identifier
@@ -459,7 +483,6 @@ export function performSlotSell(
   const entryPrice: number = slot.currentTrade.price;
 
   const profitPrice = round(entryPrice + (SlotProfitAmount / quantity), 2);
-  const stopLossPrice = round(entryPrice - (SlotLossAmount / quantity), 2);
 
   const contract: Contract = {
     symbol: stock,
@@ -469,6 +492,33 @@ export function performSlotSell(
   };
 
   const profitOrderId = globalState.nextOrderId++;
+
+  // Upside-only mode: place just the profit-target limit sell, no downside stop.
+  if (DisableStopLoss) {
+    const profitOrder: Order = {
+      orderType: OrderType.LMT,
+      action: OrderAction.SELL,
+      lmtPrice: profitPrice,
+      orderId: profitOrderId,
+      totalQuantity: quantity,
+      account: IBKR_ACCOUNT_ID,
+      tif: TimeInForce.GTC,
+      transmit: true,
+      outsideRth: true,
+    };
+
+    log(`[Slot ${slot.id}] Placing upside-only sell for ${stock}: ${quantity} shares`);
+    log(`[Slot ${slot.id}]   Profit target #${profitOrderId}: LIMIT @ ${profitPrice} (no stop loss)`);
+
+    ib.placeOrder(profitOrderId, contract, profitOrder);
+
+    slot.profitTargetOrderId = profitOrderId;
+    slot.stopLossOrderId = 0;
+    slot.state = States.SELLING;
+    return;
+  }
+
+  const stopLossPrice = round(entryPrice - (SlotLossAmount / quantity), 2);
   const stopLossOrderId = globalState.nextOrderId++;
 
   const ocaGroup: string = `OCA_${profitOrderId}_${crypto.randomBytes(6).toString('hex')}`;

@@ -8,6 +8,9 @@ export const authToken: string = process.env.TWILIO_AUTH_TOKEN!;
 
 export const port: number = 5592;
 export const DRY_RUN: boolean = (process.env.DRY_RUN || "").toLowerCase() === "true";
+// Upside-only: place only the profit-target limit sell, no stop loss. A losing
+// position is never auto-sold; it holds until exited manually or it recovers to target.
+export const DisableStopLoss: boolean = (process.env.DISABLE_STOP_LOSS || "").toLowerCase() === "true";
 export const MAX_SPEND_RAW: string = process.env.MAX_SPEND || "100000";
 export const UseAllCapital: boolean = MAX_SPEND_RAW.toUpperCase() === "ALL";
 if (!UseAllCapital && isNaN(parseInt(MAX_SPEND_RAW, 10))) {
