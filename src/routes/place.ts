@@ -46,7 +46,7 @@ export function createPlaceRoute(
 
       if (DRY_RUN && globalState.message.startsWith("b ")) {
         const date = new Date().toISOString().split('T')[0];
-        await fs.appendFile(`predictions/${date}.txt`, globalState.message + "\n");
+        // await fs.appendFile(`predictions/${date}.txt`, globalState.message + "\n");
         log(`DRY_RUN: logged "${globalState.message}" to predictions/${date}.txt`);
         return res.sendStatus(202);
       }
