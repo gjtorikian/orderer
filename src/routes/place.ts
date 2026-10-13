@@ -20,6 +20,11 @@ export function createPlaceRoute(
     res: express.Response,
   ): Promise<void | express.Response> => {
     try {
+      // Authenticate before touching shared state or logging the request body.
+      if (!verifyPassword(req.headers.authorization as string)) {
+        return res.sendStatus(404);
+      }
+
       const body = req.body;
       globalState.message = body?.message ?? "";
 
@@ -38,10 +43,6 @@ export function createPlaceRoute(
           suppressedNotReadyCount++;
         }
         return res.status(503).send("Bot is not ready yet (waiting for account data)");
-      }
-
-      if (!verifyPassword(req.headers.authorization as string)) {
-        return res.sendStatus(404);
       }
 
       if (DRY_RUN && globalState.message.startsWith("b ")) {
