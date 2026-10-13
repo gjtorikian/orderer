@@ -111,8 +111,12 @@ function monitorBuyOrder(
   entryPrice: number,
   stock: string,
 ): void {
+  // MICROFLOAT skips the 1m/3m price checks and relies on the 5m hard cancel only:
+  // thin pre-market names move far more than these ±0.2–0.5% thresholds.
+  const priceChecks: boolean = TRADING_MODE !== TradingMode.MICROFLOAT;
+
   // Check 1: at 1 minute, evaluate price position
-  setTimeout((): void => {
+  if (priceChecks) setTimeout((): void => {
     if (globalState.latestOrderFilled) {
       stopBuyMonitor(ib, globalState);
       return;
@@ -149,7 +153,7 @@ function monitorBuyOrder(
   }, CHECK_1_MS);
 
   // Check 2: at 3 minutes, re-evaluate
-  const timer2 = setTimeout((): void => {
+  const timer2 = priceChecks ? setTimeout((): void => {
     if (globalState.latestOrderFilled) {
       stopBuyMonitor(ib, globalState);
       return;
@@ -180,7 +184,7 @@ function monitorBuyOrder(
 
     // Still flat/slightly up — the 73% WR zone. Let it ride to hard cancel.
     log(`Monitor ${stock}: flat/up at 3m (${(pctMove * 100).toFixed(2)}%), holding to 5m`);
-  }, CHECK_2_MS);
+  }, CHECK_2_MS) : undefined;
 
   // Hard backstop: cancel at 5 minutes no matter what
   const hardTimer = setTimeout((): void => {
