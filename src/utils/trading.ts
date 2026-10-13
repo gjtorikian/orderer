@@ -1,5 +1,5 @@
 import { Contract, Order, OrderAction, OrderType, SecType, TimeInForce } from "@stoqey/ib";
-import { WinPercentage, LossPercentage, IBKR_ACCOUNT_ID, TRADING_MODE, FixedProfitAmount, FixedLossAmount, SlotProfitAmount, SlotLossAmount, MaxSlots, DisableStopLoss } from "../config/constants";
+import { WinPercentage, LossPercentage, IBKR_ACCOUNT_ID, TRADING_MODE, FixedProfitAmount, FixedLossAmount, SlotProfitAmount, SlotLossAmount, MaxSlots, DisableStopLoss, MicrofloatGainPercentage, MicrofloatStopPercentage } from "../config/constants";
 import { type GlobalState, type Slot, States, TradingMode } from "../types";
 import { log } from "./logger";
 import crypto from 'node:crypto';
@@ -72,7 +72,8 @@ export function performBuy(
     totalQuantity: quantity,
     account: IBKR_ACCOUNT_ID,
     tif: TimeInForce.GTC,
-    transmit: true
+    transmit: true,
+    outsideRth: TRADING_MODE === TradingMode.MICROFLOAT,
   };
 
   ib.placeOrder(orderId, contract, order);
@@ -204,7 +205,9 @@ export function performSell(
   const entryPrice: number = globalState.currentTrade.price;
 
   let profitPrice: number;
-  if (TRADING_MODE === TradingMode.PERCENTAGE) {
+  if (TRADING_MODE === TradingMode.MICROFLOAT) {
+    profitPrice = round(entryPrice * (1 + MicrofloatGainPercentage / 100), 2);
+  } else if (TRADING_MODE === TradingMode.PERCENTAGE) {
     profitPrice = round(WinPercentage * entryPrice, 2);
   } else {
     profitPrice = round(entryPrice + (FixedProfitAmount / quantity), 2);
@@ -220,7 +223,10 @@ export function performSell(
   const profitOrderId = globalState.nextOrderId++;
 
   // Upside-only mode: place just the profit-target limit sell, no downside stop.
-  if (DisableStopLoss) {
+  // MICROFLOAT is upside-only unless MICROFLOAT_STOP_PERCENTAGE is set.
+  const noStop: boolean =
+    DisableStopLoss || (TRADING_MODE === TradingMode.MICROFLOAT && MicrofloatStopPercentage === null);
+  if (noStop) {
     const profitOrder: Order = {
       orderType: OrderType.LMT,
       action: OrderAction.SELL,
@@ -244,7 +250,9 @@ export function performSell(
   }
 
   let stopLossPrice: number;
-  if (TRADING_MODE === TradingMode.PERCENTAGE) {
+  if (TRADING_MODE === TradingMode.MICROFLOAT && MicrofloatStopPercentage !== null) {
+    stopLossPrice = round(entryPrice * (1 - MicrofloatStopPercentage / 100), 2);
+  } else if (TRADING_MODE === TradingMode.PERCENTAGE) {
     stopLossPrice = round(LossPercentage * entryPrice, 2);
   } else {
     stopLossPrice = round(entryPrice - (FixedLossAmount / quantity), 2);

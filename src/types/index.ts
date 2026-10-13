@@ -9,6 +9,7 @@ export enum TradingMode {
   PERCENTAGE = "PERCENTAGE",
   FIXED = "FIXED",
   SLOTS = "SLOTS",
+  MICROFLOAT = "MICROFLOAT",
 }
 
 export interface CurrentTrade {

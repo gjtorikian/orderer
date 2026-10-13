@@ -27,7 +27,7 @@ Connection to TWS/Gateway is hardcoded to `127.0.0.1:4001`. TWS or IB Gateway mu
 
 ## Trading Modes
 
-Set `TRADING_MODE` to one of three values:
+Set `TRADING_MODE` to one of four values:
 
 ### `PERCENTAGE` (default)
 
@@ -61,6 +61,17 @@ Multi-position mode. Runs up to `MAX_SLOTS` independent concurrent positions, ea
 | `MAX_SLOTS`          | `25`    | Maximum concurrent positions. Each slot operates independently. |
 | `SLOT_PROFIT_AMOUNT` | `100`   | Per-slot profit target in dollars.                              |
 | `SLOT_LOSS_AMOUNT`   | `200`   | Per-slot stop loss in dollars.                                  |
+
+### `MICROFLOAT`
+
+Single-position mode for signals from the micro-float scanner. Buys are placed with `outsideRth` so pre-market signals can fill. On fill, the full quantity is sold at a percentage gain over the entry price.
+
+| Variable                     | Default | Description                                                                                  |
+| ---------------------------- | ------- | -------------------------------------------------------------------------------------------- |
+| `TRADING_MODE`               | —       | Set to `MICROFLOAT`.                                                                         |
+| `MICROFLOAT_GAIN_PERCENTAGE` | `50`    | Profit target as percent of entry price. `50` = sell at +50%.                                |
+| `MICROFLOAT_STOP_PERCENTAGE` | unset   | Stop loss as percent of entry price, between 0 and 100. When unset, no stop order is placed. |
+| `WIN_COUNTER_MAX`            | `2`     | Stop trading after this many wins per day.                                                   |
 
 ### Upside-only exits (`DISABLE_STOP_LOSS`)
 

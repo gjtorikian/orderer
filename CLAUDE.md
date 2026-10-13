@@ -16,11 +16,14 @@ More information can be found in docs.
 4. Buy orders are monitored and auto-cancelled based on price movement (1m/3m/5m checks)
 5. SMS notifications are sent via Twilio on fills and completions
 
+The micro-float scanner (a separate project) also uses `/alert` to text via Twilio, which works even before the bot is `ready`.
+
 ### Trading Modes (set via `TRADING_MODE` env var)
 
 - **PERCENTAGE**: profit/loss targets as percentages of buy price (`WIN_PERCENTAGE`, `LOSS_PERCENTAGE`)
 - **FIXED**: fixed dollar profit/loss amounts (`FIXED_PROFIT_AMOUNT`, `FIXED_LOSS_AMOUNT`)
 - **SLOTS**: multiple concurrent positions with fixed amounts (`MAX_SLOTS`, `SLOT_PROFIT_AMOUNT`, `SLOT_LOSS_AMOUNT`)
+- **MICROFLOAT**: for micro-float scanner signals. Buys are `outsideRth`, the target is `entry x (1 + MICROFLOAT_GAIN_PERCENTAGE/100)` for the full quantity, and a stop is placed only if `MICROFLOAT_STOP_PERCENTAGE` is set
 
 ### Key State Management
 
@@ -33,7 +36,7 @@ All trading state lives in a single `GlobalState` object (defined in `src/types/
 - `src/types/index.ts` — TypeScript types (`GlobalState`, `Slot`, `States` enum, `TradingMode` enum)
 - `src/utils/trading.ts` — Core trading logic: buy/sell execution, OCA order placement, buy-order monitoring with timed cancellation, slot management
 - `src/events/` — IB event handlers (`orderStatus`, `openOrderEnd`, `position`, `nextValidId`, `error`, `openOrder`)
-- `src/routes/` — Express route handlers (`place` for trade signals, `message` for logging predictions, `index` for health check)
+- `src/routes/` — Express route handlers (`place` for trade signals, `alert` for SMS passthrough, `message` for logging predictions, `index` for health check)
 - `src/utils/auth.ts` — Timing-safe password verification
 - `predictions/` — Daily prediction log files (written by `/message` route)
 

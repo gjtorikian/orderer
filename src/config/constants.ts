@@ -35,6 +35,20 @@ export const HotMultiplier: number = parseFloat(process.env.HOT_MULTIPLIER || "2
 // Shutdown if early losses reach this count
 export const ColdShutdownLosses: number = parseInt(process.env.COLD_SHUTDOWN_LOSSES || "2", 10);
 
+// MICROFLOAT mode: buys outside regular trading hours and sells 100% at entry x (1 + gain/100).
+// The stop is optional; leaving MICROFLOAT_STOP_PERCENTAGE unset means no stop order.
+export const MicrofloatGainPercentage: number = parseFloat(process.env.MICROFLOAT_GAIN_PERCENTAGE || "50");
+export const MicrofloatStopPercentage: number | null =
+  process.env.MICROFLOAT_STOP_PERCENTAGE && process.env.MICROFLOAT_STOP_PERCENTAGE.trim() !== ""
+    ? parseFloat(process.env.MICROFLOAT_STOP_PERCENTAGE)
+    : null;
+if (!(MicrofloatGainPercentage > 0)) {
+  throw new Error(`Invalid MICROFLOAT_GAIN_PERCENTAGE value: "${process.env.MICROFLOAT_GAIN_PERCENTAGE}". Must be > 0.`);
+}
+if (MicrofloatStopPercentage !== null && !(MicrofloatStopPercentage > 0 && MicrofloatStopPercentage < 100)) {
+  throw new Error(`Invalid MICROFLOAT_STOP_PERCENTAGE value: "${process.env.MICROFLOAT_STOP_PERCENTAGE}". Must be between 0 and 100, or unset.`);
+}
+
 export const IB_CONFIG = {
   host: "127.0.0.1",
   port: 4001,
