@@ -40,7 +40,7 @@ Submit a trade signal. This is the primary endpoint called by the signal generat
 
 | Field       | Type   | Required | Description                                                                                                                            |
 | ----------- | ------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `message`   | string | Yes      | Trade signal. Format: `"b TICKER PRICE"`. The `b` prefix is required (historical convention).                                          |
+| `message`   | string | Yes      | Trade signal. Format: `"b TICKER PRICE"` or `"b TICKER PRICE MAXSHARES"`. The `b` prefix is required (historical convention). `MAXSHARES` caps the quantity below `floor(maxSpend / PRICE)` (non-SLOTS modes). |
 | `metrics`   | object | No       | Prediction metrics from rcandy. Orderer passes them through for logging; it does not filter on them.                                   |
 | `metrics.*` | number | No       | Prediction metric values (`boxRatio`, `thrust`, etc.).                                                                                 |
 
