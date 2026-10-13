@@ -32,7 +32,13 @@ export function performBuy(
   const stock: string = globalState.sequence[1];
   const price: number = parseFloat(globalState.sequence[2]);
 
-  const quantity: number = Math.floor(globalState.maxSpend / price);
+  let quantity: number = Math.floor(globalState.maxSpend / price);
+  // Optional 4th token "b SYM PRICE MAXSHARES": a share cap from the sender
+  const maxShares: number = parseInt(globalState.sequence[3] ?? "", 10);
+  if (Number.isFinite(maxShares) && maxShares > 0 && quantity > maxShares) {
+    log(`Capping ${stock}: ${quantity} shares from maxSpend -> ${maxShares} (sender's share cap)`);
+    quantity = maxShares;
+  }
   if (quantity < 1) {
     log(`Skipping ${stock}: maxSpend ${globalState.maxSpend} / price ${price} = ${quantity} shares`);
     globalState.state = States.READY_TO_BUY;
