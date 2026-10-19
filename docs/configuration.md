@@ -6,7 +6,7 @@ All configuration is done via environment variables (`.env` file). See `.env.exa
 
 | Variable          | Required | Description                                                                                                            |
 | ----------------- | -------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `POSTER_PASSWORD` | Yes      | Password for `/place` and `/message` endpoints. Checked via timing-safe comparison against the `Authorization` header. |
+| `POSTER_PASSWORD` | Yes      | Password for `/place`, `/alert`, and `/message` endpoints. Checked via timing-safe comparison against the `Authorization` header. |
 
 ## Interactive Brokers
 

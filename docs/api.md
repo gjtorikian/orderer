@@ -56,6 +56,33 @@ Submit a trade signal. This is the primary endpoint called by the signal generat
 
 ---
 
+### `POST /alert`
+
+Send an SMS to `MY_NUMBER` via Twilio. Does not trigger any trades, and works even before the bot is ready.
+
+**Auth:** `Authorization` header.
+
+**Body:**
+
+```json
+{
+  "message": "Heads up: AAPL scan triggered"
+}
+```
+
+The message is truncated to 1500 characters.
+
+**Responses:**
+
+| Status | Meaning                          |
+| ------ | -------------------------------- |
+| `204`  | SMS sent.                        |
+| `400`  | `message` missing or empty.      |
+| `404`  | Auth failed.                     |
+| `500`  | Twilio send failed.              |
+
+---
+
 ### `POST /message`
 
 Log a prediction to the daily file. Does not trigger any trades.
