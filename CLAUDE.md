@@ -33,7 +33,8 @@ All trading state lives in a single `GlobalState` object (defined in `src/types/
 - `src/types/index.ts` — TypeScript types (`GlobalState`, `Slot`, `States` enum, `TradingMode` enum)
 - `src/utils/trading.ts` — Core trading logic: buy/sell execution, OCA order placement, buy-order monitoring with timed cancellation, slot management
 - `src/events/` — IB event handlers (`orderStatus`, `openOrderEnd`, `position`, `nextValidId`, `error`, `openOrder`)
-- `src/routes/` — Express route handlers (`place` for trade signals, `alert` for SMS passthrough, `message` for logging predictions, `index` for health check)
+- `src/routes/` — Express route handlers (`place` for trade signals, `alert` for SMS passthrough, `quote` for read-only quotes, `message` for logging predictions, `index` for health check)
+- `src/utils/quotes.ts` — `QuoteBook`: cached streaming quotes behind `GET /quote`, reqIds 2,100,000,000+ (never collides with order ids), idle/LRU unsubscribe
 - `src/utils/auth.ts` — Timing-safe password verification
 - `predictions/` — Daily prediction log files (written by `/message` route)
 

@@ -15,8 +15,10 @@ import { createAlertRoute } from "./routes/alert";
 import { createIndexRoute } from "./routes/index";
 import { createMessageRoute } from "./routes/message";
 import { createPlaceRoute } from "./routes/place";
+import { createQuoteRoute } from "./routes/quote";
 import { type GlobalState, States, TradingMode } from "./types";
 import { log } from "./utils/logger";
+import { QuoteBook } from "./utils/quotes";
 import { findSlotByMktDataReqId } from "./utils/trading";
 import { IBApi, EventName, ErrorCode, Contract } from "@stoqey/ib";
 
@@ -76,6 +78,7 @@ app.get("/", createIndexRoute(ib));
 app.post("/place", createPlaceRoute(globalState, twilio, ib));
 app.post("/alert", createAlertRoute(twilio));
 app.post("/message", createMessageRoute());
+app.get("/quote", createQuoteRoute(new QuoteBook(ib)));
 
 ib.connect();
 ib.reqGlobalCancel();
