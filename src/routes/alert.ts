@@ -12,7 +12,7 @@ export function createAlertRoute(twilio: any): express.RequestHandler {
       const message: string = String(req.body?.message ?? "").slice(0, 1500);
       if (!message) return res.status(400).send("message required");
       await twilio.messages.create({ body: message, from: TWILIO_CONFIG.twilioNumber, to: TWILIO_CONFIG.myNumber });
-      log(`[alert] ${message.replace(/\n/g, " | ")}`);
+      // log(`[alert] ${message.replace(/\n/g, " | ")}`);
       return res.sendStatus(204);
     } catch (err: any) {
       log(`[alert] failed: ${err?.message ?? err}`);
