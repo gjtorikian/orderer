@@ -1,4 +1,5 @@
-import { type GlobalState, States } from "../types";
+import { TRADING_MODE } from "../config/constants";
+import { type GlobalState, States, TradingMode } from "../types";
 import { log } from "../utils/logger";
 import { performBuy, performSell } from "../utils/trading";
 
@@ -11,6 +12,9 @@ export function handleNextValidId(
 
   // Store the next valid order ID
   globalState.nextOrderId = orderId;
+
+  // LOOP mode places its own orders from the tick; re-buying here on a reconnect would double up.
+  if (TRADING_MODE === TradingMode.LOOP) return;
 
   if (globalState.state == States.BUYING) {
     performBuy(ib, globalState);

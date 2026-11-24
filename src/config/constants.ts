@@ -24,6 +24,30 @@ export const WinCounterMax: number = parseInt(process.env.WIN_COUNTER_MAX || "2"
 export const TRADING_MODE: TradingMode = (process.env.TRADING_MODE as TradingMode) || TradingMode.PERCENTAGE;
 export const FixedProfitAmount: number = parseFloat(process.env.FIXED_PROFIT_AMOUNT || "100");
 export const FixedLossAmount: number = parseFloat(process.env.FIXED_LOSS_AMOUNT || "200");
+
+// LOOP mode: buy LOOP_SYMBOL, sell it FIXED_PROFIT_AMOUNT higher, repeat up to WIN_COUNTER_MAX times a day,
+// between LOOP_START and LOOP_END (Eastern, HH:MM). No signals, no stop loss. A buy unfilled after
+// LOOP_FILL_TIMEOUT_SECONDS is cancelled and re-priced from a fresh quote.
+function parseClock(value: string, name: string): number {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  const hours = match ? parseInt(match[1], 10) : NaN;
+  const minutes = match ? parseInt(match[2], 10) : NaN;
+  if (!match || hours > 23 || minutes > 59) {
+    throw new Error(`Invalid ${name} value: "${value}". Must be HH:MM in 24-hour Eastern time.`);
+  }
+  return hours * 60 + minutes;
+}
+export const LoopSymbol: string = (process.env.LOOP_SYMBOL || "").trim().toUpperCase();
+export const LoopStartMinutes: number = parseClock(process.env.LOOP_START || "09:30", "LOOP_START");
+export const LoopEndMinutes: number = parseClock(process.env.LOOP_END || "15:30", "LOOP_END");
+export const LoopFillTimeoutMs: number = parseInt(process.env.LOOP_FILL_TIMEOUT_SECONDS || "30", 10) * 1000;
+// IB orderRef stamped on every order the loop places, so a restart can tell its own leftovers from your other orders.
+export const LoopOrderRef = "orderer-loop";
+if (TRADING_MODE === TradingMode.LOOP) {
+  if (!LoopSymbol) throw new Error("TRADING_MODE=LOOP requires LOOP_SYMBOL (e.g. QQQ).");
+  if (LoopEndMinutes <= LoopStartMinutes) throw new Error("LOOP_END must be later than LOOP_START.");
+  if (!(LoopFillTimeoutMs > 0)) throw new Error("LOOP_FILL_TIMEOUT_SECONDS must be a positive number.");
+}
 export const MaxSlots: number = parseInt(process.env.MAX_SLOTS || "25", 10);
 export const SlotProfitAmount: number = parseFloat(process.env.SLOT_PROFIT_AMOUNT || "100");
 export const SlotLossAmount: number = parseFloat(process.env.SLOT_LOSS_AMOUNT || "200");

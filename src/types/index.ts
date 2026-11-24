@@ -9,6 +9,7 @@ export enum TradingMode {
   PERCENTAGE = "PERCENTAGE",
   FIXED = "FIXED",
   SLOTS = "SLOTS",
+  LOOP = "LOOP",
 }
 
 export interface CurrentTrade {
@@ -39,6 +40,41 @@ export interface RegimeState {
   dailyLosses: number;
 }
 
+export interface LoopSession {
+  /** Eastern date (YYYY-MM-DD) this session belongs to */
+  date: string;
+  /** Regular-session open and close, minutes since midnight Eastern (0 when closed) */
+  open: number;
+  close: number;
+  /** IB lists the exchange as CLOSED for the day (holiday or weekend) */
+  closed: boolean;
+}
+
+export interface LoopState {
+  /** Eastern date (YYYY-MM-DD) the win counter belongs to; it resets when this changes */
+  day: string;
+  /** IB confirmed no leftover order or position in LOOP_SYMBOL since the last (re)connect */
+  preflightOk: boolean;
+  preflightBusy: boolean;
+  nextPreflightAt: number;
+  blockAnnounced: boolean;
+  /** Today's regular session from IB contract details, or null until fetched */
+  session: LoopSession | null;
+  sessionBusy: boolean;
+  nextSessionFetchAt: number;
+  buyBusy: boolean;
+  /** Earliest time the next buy may be placed (backoff after a rejection) */
+  nextBuyAt: number;
+  buyPlacedAt: number;
+  /** When the loop asked IB to cancel the working buy, 0 if it has not */
+  cancelRequestedAt: number;
+  /** Why the loop stopped itself for the day, or null while running */
+  halted: string | null;
+  haltAnnounced: boolean;
+  doneAnnounced: boolean;
+  lastLogAt: Map<string, number>;
+}
+
 export interface GlobalState {
   state: States;
   currentTrade: CurrentTrade;
@@ -66,4 +102,6 @@ export interface GlobalState {
   slots: Map<number, Slot>;
   /** Adaptive regime state for intraday scaling */
   regime: RegimeState;
+  /** Self-driving round-trip state for LOOP mode */
+  loop: LoopState;
 }

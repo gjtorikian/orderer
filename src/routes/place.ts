@@ -28,6 +28,13 @@ export function createPlaceRoute(
       const body = req.body;
       globalState.message = body?.message ?? "";
 
+      // LOOP mode trades on its own schedule: a buy signal is recorded for the day's predictions, never traded.
+      if (TRADING_MODE === TradingMode.LOOP && globalState.message.startsWith("b ")) {
+        const date = new Date().toISOString().split('T')[0];
+        await fs.appendFile(`predictions/${date}.txt`, globalState.message + "\n");
+        return res.sendStatus(202);
+      }
+
       if (!globalState.ready) {
         const now = Date.now();
         if (now - lastNotReadyLogAt >= NOT_READY_LOG_INTERVAL_MS) {

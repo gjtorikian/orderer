@@ -21,10 +21,11 @@ More information can be found in docs.
 - **PERCENTAGE**: profit/loss targets as percentages of buy price (`WIN_PERCENTAGE`, `LOSS_PERCENTAGE`)
 - **FIXED**: fixed dollar profit/loss amounts (`FIXED_PROFIT_AMOUNT`, `FIXED_LOSS_AMOUNT`)
 - **SLOTS**: multiple concurrent positions with fixed amounts (`MAX_SLOTS`, `SLOT_PROFIT_AMOUNT`, `SLOT_LOSS_AMOUNT`)
+- **LOOP**: self-driving. Buys `LOOP_SYMBOL` at the ask from `LOOP_START` (09:30 ET), sells `FIXED_PROFIT_AMOUNT` higher with no stop loss, repeats up to `WIN_COUNTER_MAX` round trips a day. `/place` buy signals are only logged to `predictions/`. Startup skips `reqGlobalCancel()` in this mode.
 
 ### Key State Management
 
-All trading state lives in a single `GlobalState` object (defined in `src/types/index.ts`) initialized in `server.ts`. The state machine cycles: `READY_TO_BUY → BUYING → SELLING → READY_TO_BUY`. In SLOTS mode, each slot has its own independent state cycle.
+All trading state lives in a single `GlobalState` object (defined in `src/types/index.ts`) initialized in `server.ts`. The state machine cycles: `READY_TO_BUY → BUYING → SELLING → READY_TO_BUY`. In SLOTS mode, each slot has its own independent state cycle. In LOOP mode the same single-position cycle is driven by a 5-second tick in `src/utils/loop.ts` instead of by `/place`.
 
 ### Source Layout
 
@@ -35,8 +36,9 @@ All trading state lives in a single `GlobalState` object (defined in `src/types/
 - `src/events/` — IB event handlers (`orderStatus`, `openOrderEnd`, `position`, `nextValidId`, `error`, `openOrder`)
 - `src/routes/` — Express route handlers (`place` for trade signals, `alert` for SMS passthrough, `quote` for read-only quotes, `message` for logging predictions, `index` for health check)
 - `src/utils/quotes.ts` — `QuoteBook`: cached streaming quotes behind `GET /quote`, reqIds 2,100,000,000+ (never collides with order ids), idle/LRU unsubscribe
+- `src/utils/loop.ts` — LOOP mode: tick scheduler, preflight scan for its own leftover orders (IB `orderRef` `orderer-loop`), daily session hours via `reqContractDetails`, ask-priced buys with timeout re-pricing, and the mode's `orderStatus`/rejection handlers
 - `src/utils/auth.ts` — Timing-safe password verification
-- `predictions/` — Daily prediction log files (written by `/message` route)
+- `predictions/` — Daily prediction log files (written by the `/message` route, and by `/place` buy signals in LOOP mode)
 
 ### Important Details
 
@@ -44,4 +46,4 @@ All trading state lives in a single `GlobalState` object (defined in `src/types/
 - Order IDs are managed via `globalState.nextOrderId`, initialized from IB's `nextValidId` event
 - The bot caps `maxSpend` at the lesser of: configured amount, BuyingPower, and available Reg-T margin capacity
 - Buy order monitoring uses market data tick subscriptions (`reqMktData`) with reqId 8001 for single-trade mode, 8100+ for slots
-- `WinCounterMax` limits total wins per day before the bot stops trading
+- `WinCounterMax` limits total wins per day before the bot stops trading. Only LOOP mode resets the counter on a new Eastern trading day; the other modes reset it on process restart

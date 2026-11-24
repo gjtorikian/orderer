@@ -2,6 +2,7 @@ import { TWILIO_CONFIG, WinCounterMax, TRADING_MODE, MaxSlots } from "../config/
 import { type GlobalState, States, TradingMode } from "../types";
 import { log } from "../utils/logger";
 import { isCancelled, performSell, stopBuyMonitor, findSlotByOrderId, performSlotSell } from "../utils/trading";
+import { handleLoopOrderStatus } from "../utils/loop";
 import { updateRegime } from "../utils/regime";
 
 export async function handleOrderStatus(
@@ -17,6 +18,9 @@ export async function handleOrderStatus(
 ): Promise<void> {
   if (TRADING_MODE === TradingMode.SLOTS) {
     return handleSlotOrderStatus(globalState, twilio, ib, orderId, status, filled, remaining, avgFillPrice);
+  }
+  if (TRADING_MODE === TradingMode.LOOP) {
+    return handleLoopOrderStatus(globalState, twilio, ib, orderId, status, filled, remaining, avgFillPrice);
   }
 
   const unfulfilledCancelled: boolean =

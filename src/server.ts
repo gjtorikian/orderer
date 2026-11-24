@@ -18,6 +18,7 @@ import { createPlaceRoute } from "./routes/place";
 import { createQuoteRoute } from "./routes/quote";
 import { type GlobalState, States, TradingMode } from "./types";
 import { log } from "./utils/logger";
+import { initialLoopState, startLoop } from "./utils/loop";
 import { QuoteBook } from "./utils/quotes";
 import { findSlotByMktDataReqId } from "./utils/trading";
 import { IBApi, EventName, ErrorCode, Contract } from "@stoqey/ib";
@@ -72,16 +73,21 @@ const globalState: GlobalState = {
     dailyWins: 0,
     dailyLosses: 0,
   },
+  loop: initialLoopState(),
 };
 
 app.get("/", createIndexRoute(ib));
 app.post("/place", createPlaceRoute(globalState, twilio, ib));
 app.post("/alert", createAlertRoute(twilio));
 app.post("/message", createMessageRoute());
-app.get("/quote", createQuoteRoute(new QuoteBook(ib)));
+const quoteBook = new QuoteBook(ib);
+app.get("/quote", createQuoteRoute(quoteBook));
 
 ib.connect();
-ib.reqGlobalCancel();
+// LOOP mode keeps a GTC profit target alive across restarts; cancelling it would leave the position with no exit.
+if (TRADING_MODE !== TradingMode.LOOP) {
+  ib.reqGlobalCancel();
+}
 
 const ACCOUNT_SUMMARY_REQ_ID = 9001;
 const RECONNECT_DELAY_MS = 5_000;
@@ -249,6 +255,10 @@ ib.on(EventName.tickPrice, (reqId: number, field: number, value: number): void =
     }
   }
 });
+
+if (TRADING_MODE === TradingMode.LOOP) {
+  startLoop(ib, globalState, twilio, quoteBook);
+}
 
 server.listen(port, (): void => {
   log(`Listening on ${port}`);

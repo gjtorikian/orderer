@@ -1,6 +1,7 @@
 import { type GlobalState, States, TradingMode } from "../types";
 import { TRADING_MODE } from "../config/constants";
 import { error, log } from "../utils/logger";
+import { handleLoopOrderRejected } from "../utils/loop";
 import { findSlotByOrderId, stopBuyMonitor } from "../utils/trading";
 
 // Order rejection codes — order never made it onto the book and never will
@@ -65,6 +66,11 @@ function freeStateForRejectedOrder(
       }
       globalState.slots.delete(slot.id);
     }
+    return;
+  }
+
+  if (TRADING_MODE === TradingMode.LOOP) {
+    handleLoopOrderRejected(globalState, orderId);
     return;
   }
 

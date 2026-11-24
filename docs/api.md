@@ -20,6 +20,8 @@ Health check. Returns IBKR server time.
 
 Submit a trade signal. This is the primary endpoint called by the signal generator (rcandy).
 
+In `LOOP` mode the bot trades on its own schedule, so a buy signal is only recorded: the message is appended to `predictions/YYYY-MM-DD.txt` and the response is `202`. Non-signal messages are still forwarded as SMS.
+
 **Auth:** `Authorization` header.
 
 **Body:**
@@ -49,7 +51,7 @@ Submit a trade signal. This is the primary endpoint called by the signal generat
 | Status | Meaning                                                                                         |
 | ------ | ----------------------------------------------------------------------------------------------- |
 | `200`  | Trade accepted and order placed. In SLOTS mode, body includes slot info like `"Slot 3 (4/25)"`. |
-| `202`  | Trade deferred — previous order still open, or all slots occupied.                              |
+| `202`  | Trade deferred — previous order still open, or all slots occupied. In LOOP mode: signal logged to `predictions/`, not traded. |
 | `204`  | Trade rejected — cold shutdown active, or daily win limit reached.                              |
 | `404`  | Auth failed.                                                                                    |
 | `503`  | Bot not ready (still waiting for IBKR account data).                                            |
@@ -170,4 +172,20 @@ POST /place (no metrics needed)
   → monitorBuyOrder(): cancel if price moves against
   → on fill: performSell(): place OCA sell pair (profit limit + stop loss)
   → on exit fill: increment winTimes, SMS notification
+```
+
+### LOOP mode
+
+No HTTP call starts a trade. A tick every 5 seconds drives the cycle between `LOOP_START` and `LOOP_END` ET:
+
+```
+tick (READY_TO_BUY, first time after connect)
+  → reqAllOpenOrders(): wait while an order tagged orderRef=orderer-loop is still working in LOOP_SYMBOL
+tick (READY_TO_BUY, first time each day)
+  → reqContractDetails(): today's liquidHours; idle when CLOSED, clip the buying window to the session
+tick (READY_TO_BUY, inside the window, winTimes < WIN_COUNTER_MAX)
+  → QuoteBook.get(LOOP_SYMBOL): place DAY limit buy at the ask
+  → unfilled after LOOP_FILL_TIMEOUT_SECONDS: cancelOrder(); on IB's Cancelled, back to READY_TO_BUY (re-priced next tick)
+  → on fill: performSell(): GTC profit-target limit only, no stop
+  → on sell fill: winTimes++, back to READY_TO_BUY; SMS every 5th win and when the day's count is reached
 ```

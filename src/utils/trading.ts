@@ -1,5 +1,5 @@
 import { Contract, Order, OrderAction, OrderType, SecType, TimeInForce } from "@stoqey/ib";
-import { WinPercentage, LossPercentage, IBKR_ACCOUNT_ID, TRADING_MODE, FixedProfitAmount, FixedLossAmount, SlotProfitAmount, SlotLossAmount, MaxSlots, DisableStopLoss } from "../config/constants";
+import { WinPercentage, LossPercentage, IBKR_ACCOUNT_ID, TRADING_MODE, FixedProfitAmount, FixedLossAmount, SlotProfitAmount, SlotLossAmount, MaxSlots, DisableStopLoss, LoopOrderRef } from "../config/constants";
 import { type GlobalState, type Slot, States, TradingMode } from "../types";
 import { log } from "./logger";
 import crypto from 'node:crypto';
@@ -216,6 +216,9 @@ export function performSell(
     profitPrice = round(entryPrice + (FixedProfitAmount / quantity), 2);
   }
 
+  // LOOP mode never places a stop: a round trip that goes against us holds until it recovers to target.
+  const upsideOnly: boolean = DisableStopLoss || TRADING_MODE === TradingMode.LOOP;
+
   const contract: Contract = {
     symbol: stock,
     exchange: "SMART",
@@ -226,7 +229,7 @@ export function performSell(
   const profitOrderId = globalState.nextOrderId++;
 
   // Upside-only mode: place just the profit-target limit sell, no downside stop.
-  if (DisableStopLoss) {
+  if (upsideOnly) {
     const profitOrder: Order = {
       orderType: OrderType.LMT,
       action: OrderAction.SELL,
@@ -237,6 +240,8 @@ export function performSell(
       tif: TimeInForce.GTC,
       transmit: true,
       outsideRth: true,
+      // Lets a restarted LOOP recognise its own working sell (see loop.ts preflight).
+      ...(TRADING_MODE === TradingMode.LOOP ? { orderRef: LoopOrderRef } : {}),
     };
 
     log(`Placing upside-only sell for ${stock}: ${quantity} shares`);
